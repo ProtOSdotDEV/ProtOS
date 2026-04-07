@@ -21,6 +21,10 @@ cat << 'BANNER'
 
 BANNER
 
+# can't find a better place to put this so i'm putting it here
+mkdir -p $HOME/install
+cp /etc/install_protos.sh $HOME/install
+
 echo "  Kernel: $(uname -sr)"
 echo "  Arch:   $(uname -m)"
 echo "  Date:   $(date 2>/dev/null || echo 'N/A')"

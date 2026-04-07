@@ -9,6 +9,7 @@ DB_DIR="/var/lib/protpkg"
 CACHE_DIR="/var/cache/protpkg"
 INDEX_FILE="$DB_DIR/PACKAGES.idx"
 INSTALLED_DIR="$DB_DIR/installed"
+LOCK_FILE="$DB_DIR/protopkg.lock"
 
 # Colors
 RED='\033[0;31m'
@@ -23,6 +24,22 @@ ok()   { printf "${GREEN}>>>${NC} %s\n" "$1"; }
 warn() { printf "${YELLOW}warning:${NC} %s\n" "$1"; }
 err()  { printf "${RED}error:${NC} %s\n" "$1" >&2; }
 die()  { err "$1"; exit 1; }
+
+acquire_lock() {
+    if [ -f "$LOCK_FILE" ]; then
+        local pid
+        pid=$(cat "$LOCK_FILE" 2>/dev/null)
+        if [ -n "$pid" ] && kill -0 "$pid" 2>/dev/null; then
+        fie "Another protopkg process is running (pid $pid)"
+    fi
+    echo $$ > "$LOCK_FILE"
+    trap 'rm -f "$LOCK_FILE"' EXIT
+}
+
+release_lock() {
+    rm -f "$LOCK_FILE"
+    trap - EXIT
+}
 
 # Ensure required directories exist
 init_dirs() {
@@ -124,7 +141,7 @@ resolve_deps() {
 
     local entry
     entry=$(grep "^${pkg}|" "$INDEX_FILE" 2>/dev/null | head -1)
-    [ -z "$entry" ] && { warn "Dependency '$pkg' not found in index"; return 1; }
+    [ -z "$entry" ] && { echo "warning: Dependency '$pkg' not found in index" >&2; return 1; }
 
     local name ver arch deps size sha desc
     IFS='|' read -r name ver arch deps size sha desc <<EOF
@@ -273,9 +290,7 @@ EOF
         filelist=$(cd "$tmpdir/data" && find . -type f -o -type l | sed 's|^\./|/|' | sort)
 
         # Install files to root
-        cd "$tmpdir/data"
-        tar cf - . | tar xf - -C /
-
+        cd "$tmpdir/data" && tar cf - . | tar xf - -C /) || warn "Some files may not have been extracted cleanly"
         # Run post-install script if present
         if [ -f "$tmpdir/post-install.sh" ]; then
             sh "$tmpdir/post-install.sh" 2>/dev/null || true
@@ -414,6 +429,10 @@ cmd_upgrade() {
         rver=$(echo "$entry" | cut -d'|' -f2)
 
         if [ -n "$iver" ] && [ -n "$rver" ] && [ "$iver" != "$rver" ]; then
+            # only upgrade if remote version is newer
+            local oldest
+            oldest=$(printf '%s\n%s\n' "$iver" "$rver" | sort -V | head -1)
+            [ "$oldest" = "$rver" ] && continue
             upgrades="$upgrades $name"
             printf "  %s: %s -> %s\n" "$name" "$iver" "$rver"
         fi
@@ -468,10 +487,10 @@ EOF
 init_dirs
 
 case "${1:-}" in
-    sync)     cmd_sync ;;
-    install)  shift; cmd_install "$@" ;;
-    remove)   shift; cmd_remove "$@" ;;
-    upgrade)  cmd_upgrade ;;
+    sync)     acquire_lock; cmd_sync ;;
+    install)  shift; acquire_lock; cmd_install "$@" ;;
+    remove)   shift; acquire_lock; cmd_remove "$@" ;;
+    upgrade)  acquire_lock; cmd_upgrade ;;
     search)   shift; cmd_search "$@" ;;
     info)     shift; cmd_info "$@" ;;
     list)     cmd_list ;;

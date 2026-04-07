@@ -628,8 +628,9 @@ build_rootfs() {
     chmod +x "$ROOTFS/etc/udhcpc.sh"
 
     # Install installer
-    cp "$SRC_DIR/installer.sh" "$ROOTFS/etc/installer.sh"
-    chmod +x "$ROOTFS/etc/installer.sh"
+    cp "$SRC_DIR/installer/install_protos.sh" "$ROOTFS/etc/install_protos.sh"
+    chmod +x "$ROOTFS/etc/install_protos.sh"
+
 
     # Install protpkg package manager
     info "Installing protpkg package manager..."
@@ -972,10 +973,7 @@ create_initramfs() {
     info "Creating initramfs (cpio archive)..."
     mkdir -p "$OUT_DIR"
 
-    # MUST run inside Lima VM because macOS has a case-insensitive filesystem.
-    # The Arch ncurses package uses uppercase dirs (L/linux, V/vt100) but programs
-    # look for lowercase (l/linux). On macOS L/ and l/ are the same directory,
-    # so we must copy to the VM's local (case-sensitive) /tmp filesystem to fix this.
+    
     lima_exec "
         set -e
         ROOTFS='$BUILD_DIR/rootfs'
@@ -983,8 +981,29 @@ create_initramfs() {
         TMPROOT='/tmp/protos-rootfs-cpio'
 
         # Copy rootfs to case-sensitive local filesystem
-        rm -rf \"\$TMPROOT\"
-        cp -a \"\$ROOTFS\" \"\$TMPROOT\"
+        # Use tar to preserve symlinks and all file types reliably across the Lima mount
+        sudo rm -rf \"\$TMPROOT\"
+        mkdir -p \"\$TMPROOT\"
+        cd \"\$ROOTFS\"
+        tar cf - . | (cd \"\$TMPROOT\" && tar xf -)
+
+        # Recreate merged-usr symlinks (macOS mount doesn't preserve them)
+        cd \"\$TMPROOT\"
+        rm -rf bin sbin lib lib64 2>/dev/null || true
+        ln -sf usr/bin bin
+        ln -sf usr/sbin sbin
+        ln -sf usr/lib lib
+        ln -sf usr/lib lib64
+
+        # Fix execute permissions (macOS mount strips them)
+        chmod +x \"\$TMPROOT/init\"
+        find \"\$TMPROOT/usr/bin\" -type f -exec chmod +x {} +
+        find \"\$TMPROOT/usr/sbin\" -type f -exec chmod +x {} +
+        find \"\$TMPROOT/usr/lib\" -name '*.so*' -type f -exec chmod +x {} + 2>/dev/null || true
+        chmod +x \"\$TMPROOT/etc/shell-login\" \"\$TMPROOT/etc/init.d/rcS\" \"\$TMPROOT/etc/udhcpc.sh\" 2>/dev/null || true
+        chmod +x \"\$TMPROOT/etc/installer.sh\" 2>/dev/null || true
+        chmod +x \"\$TMPROOT/etc/install_protos.sh\" 2>/dev/null || true
+
 
         # Fix terminfo case-sensitivity: create lowercase dirs with copies of uppercase content
         cd \"\$TMPROOT/usr/share/terminfo\" 2>/dev/null || true
@@ -1000,10 +1019,11 @@ create_initramfs() {
 
         # Create the cpio archive from the case-correct copy
         cd \"\$TMPROOT\"
+        sudo chown -R 0:0 \"\$TMPROOT\"
         find . | cpio -H newc -o --quiet 2>/dev/null | gzip -9 > \"\$OUT/initramfs.cpio.gz\"
 
         # Clean up
-        rm -rf \"\$TMPROOT\"
+        sudo rm -rf \"\$TMPROOT\"
     "
 
     ok "initramfs created: $OUT_DIR/initramfs.cpio.gz ($(du -h "$OUT_DIR/initramfs.cpio.gz" | cut -f1))"

@@ -3,12 +3,9 @@
 # System startup
 ::sysinit:/etc/init.d/rcS
 
-# Launch shell on framebuffer console (tty1) — this is what UTM/display shows
 tty1::respawn:/sbin/getty -n -l /etc/shell-login 0 tty1
 
-# Launch shell on serial console — for QEMU -nographic and serial access
 ttyAMA0::respawn:/sbin/getty -n -l /etc/shell-login 115200 ttyAMA0
 
-# Graceful shutdown
 ::shutdown:/bin/umount -a -r
 ::shutdown:/bin/sync

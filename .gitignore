@@ -1,2 +1,7 @@
 build/
 out/
+
+lib
+lib64
+sbin
+bin

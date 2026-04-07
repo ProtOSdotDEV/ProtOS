@@ -86,8 +86,9 @@ $(OUT_DIR)/initramfs.cpio.gz: busybox $(SRC_DIR)/init
 	cp $(SRC_DIR)/init $(ROOTFS_DIR)/init
 	chmod +x $(ROOTFS_DIR)/init
 	# Install additional config files
-	cp $(SRC_DIR)/etc/os-release $(SRC_DIR)/etc/hostname $(SRC_DIR)/etc/motd $(SRC_DIR)/etc/profile $(SRC_DIR)/etc/inittab $(SRC_DIR)/etc/shell-login $(ROOTFS_DIR)/etc/
+	cp $(SRC_DIR)/etc/os-release $(SRC_DIR)/etc/hostname $(SRC_DIR)/etc/motd $(SRC_DIR)/etc/profile $(SRC_DIR)/etc/inittab $(SRC_DIR)/etc/shell-login $(SRC_DIR)/installer/install_protos.sh $(ROOTFS_DIR)/etc/
 	chmod +x $(ROOTFS_DIR)/etc/shell-login
+	chmod +x $(ROOTFS_DIR)/etc/install_protos.sh
 	cp $(SRC_DIR)/etc/init.d/rcS $(ROOTFS_DIR)/etc/init.d/rcS
 	chmod +x $(ROOTFS_DIR)/etc/init.d/rcS
 	# Install installer

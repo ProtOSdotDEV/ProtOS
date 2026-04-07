@@ -1,6 +1,6 @@
 NAME="ProtOS"
-VERSION="0.1.0"
+VERSION="0.1.1"
 ID=protos
-VERSION_ID=0.1.0
-PRETTY_NAME="ProtOS v0.1.0"
-HOME_URL="https://github.com/protos"
+VERSION_ID=0.1.1
+PRETTY_NAME="ProtOS v0.1.1"
+HOME_URL="https://github.com/ProtOSdotDev/protos"
