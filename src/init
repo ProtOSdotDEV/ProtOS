@@ -1,0 +1,139 @@
+#!/bin/sh
+# ProtOS Early Init
+# Handles both live (RAM) and installed (disk) boot modes
+
+# Mount essential virtual filesystems
+mount -t proc none /proc
+mount -t sysfs none /sys
+mount -t devtmpfs none /dev
+mount -t tmpfs none /tmp
+mount -t tmpfs none /run
+mkdir -p /dev/pts
+mount -t devpts none /dev/pts
+
+# Set hostname
+echo "protos" > /proc/sys/kernel/hostname
+
+# Set up environment
+export HOME=/root
+export PATH=/bin:/sbin:/usr/bin:/usr/sbin
+export TERM=linux
+export TERMINFO=/etc/terminfo
+
+# Bring up loopback interface
+ip link set lo up 2>/dev/null || ifconfig lo 127.0.0.1 up 2>/dev/null
+
+# Bring up network interfaces via DHCP
+for iface in eth0 enp0s1 ens3; do
+    if [ -e "/sys/class/net/$iface" ]; then
+        ip link set "$iface" up 2>/dev/null
+        udhcpc -i "$iface" -s /etc/udhcpc.sh -q -b 2>/dev/null &
+    fi
+done
+
+# Set kernel log level
+echo 3 > /proc/sys/kernel/printk
+
+# Wait for block devices to settle
+sleep 1
+mdev -s 2>/dev/null || true
+
+# Parse kernel command line for boot mode
+BOOT_MODE="live"
+for param in $(cat /proc/cmdline); do
+    case "$param" in
+        protos.mode=install) BOOT_MODE="install" ;;
+        protos.mode=live)    BOOT_MODE="live" ;;
+        root=LABEL=*)        BOOT_MODE="disk"; ROOT_LABEL="${param#root=LABEL=}" ;;
+        root=UUID=*)         BOOT_MODE="disk"; ROOT_UUID="${param#root=UUID=}" ;;
+        root=/dev/*)         BOOT_MODE="disk"; ROOT_DEV="${param#root=}" ;;
+    esac
+done
+
+# Try to find an installed ProtOS if not explicitly set
+if [ "$BOOT_MODE" = "live" ]; then
+    for part in /dev/nvme0n1p3 /dev/nvme0n1p2 /dev/vda3 /dev/sda3 /dev/vda2 /dev/sda2; do
+        if [ -b "$part" ]; then
+            mkdir -p /tmp/probe
+            if mount -t ext4 -o ro "$part" /tmp/probe 2>/dev/null; then
+                if [ -f /tmp/probe/etc/protos-installed ]; then
+                    BOOT_MODE="disk"
+                    ROOT_DEV="$part"
+                fi
+                umount /tmp/probe
+            fi
+        fi
+    done
+    rm -rf /tmp/probe
+fi
+
+case "$BOOT_MODE" in
+    install)
+        # Run installer
+        echo ""
+        echo "Starting ProtOS installer..."
+        echo ""
+        /etc/installer.sh
+        echo ""
+        echo "Dropping to shell. Type 'reboot' to restart."
+        exec /sbin/init
+        ;;
+
+    disk)
+        # Boot from installed disk
+        echo "Booting ProtOS from disk..."
+
+        # Determine root device
+        if [ -n "$ROOT_LABEL" ]; then
+            ROOT_DEV=$(findfs LABEL="$ROOT_LABEL" 2>/dev/null)
+        elif [ -n "$ROOT_UUID" ]; then
+            ROOT_DEV=$(findfs UUID="$ROOT_UUID" 2>/dev/null)
+        fi
+
+        if [ -z "$ROOT_DEV" ] || [ ! -b "$ROOT_DEV" ]; then
+            echo "ERROR: Cannot find root device. Falling back to live mode."
+            exec /sbin/init
+        fi
+
+        # Mount root filesystem
+        mkdir -p /mnt/root
+        mount -t ext4 -o noatime "$ROOT_DEV" /mnt/root
+
+        if [ ! -d /mnt/root/bin ]; then
+            echo "ERROR: Root filesystem appears empty. Falling back to live mode."
+            umount /mnt/root
+            exec /sbin/init
+        fi
+
+        # Enable swap if available
+        for swap_dev in /dev/nvme0n1p2 /dev/vda2 /dev/sda2; do
+            if [ -b "$swap_dev" ]; then
+                swapon "$swap_dev" 2>/dev/null && echo "Swap enabled on $swap_dev"
+                break
+            fi
+        done
+
+        # Switch root: move virtual filesystems, then pivot
+        mount --move /proc /mnt/root/proc
+        mount --move /sys /mnt/root/sys
+        mount --move /dev /mnt/root/dev
+        mount --move /tmp /mnt/root/tmp
+        mount --move /run /mnt/root/run
+
+        # Pivot to disk root
+        exec switch_root /mnt/root /sbin/init
+        ;;
+
+    live)
+        # Live mode (RAM) - enable swap if a swap partition exists
+        for swap_dev in /dev/nvme0n1p2 /dev/vda2 /dev/sda2; do
+            if [ -b "$swap_dev" ]; then
+                swapon "$swap_dev" 2>/dev/null && echo "Swap enabled on $swap_dev"
+                break
+            fi
+        done
+
+        # Hand off to BusyBox init
+        exec /sbin/init
+        ;;
+esac

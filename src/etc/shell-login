@@ -1,0 +1,31 @@
+#!/bin/sh
+# ProtOS login shell wrapper
+
+export HOME=/root
+export PATH=/bin:/sbin:/usr/bin:/usr/sbin
+export TERM=linux
+export TERMINFO=/etc/terminfo
+export PS1='\[\033[1;32m\]protos\[\033[0m\]:\[\033[1;36m\]\w\[\033[0m\]\$ '
+
+clear
+cat << 'BANNER'
+
+    ____             __  ____  _____
+   / __ \_________  / /_/ __ \/ ___/
+  / /_/ / ___/ __ \/ __/ / / /\__ \
+ / ____/ /  / /_/ / /_/ /_/ /___/ /
+/_/   /_/   \____/\__/\____//____/
+
+        ARM64 Linux-based OS
+            v0.1.0
+
+BANNER
+
+echo "  Kernel: $(uname -sr)"
+echo "  Arch:   $(uname -m)"
+echo "  Date:   $(date 2>/dev/null || echo 'N/A')"
+echo ""
+echo "  Welcome to ProtOS!"
+echo ""
+
+exec /bin/sh -l

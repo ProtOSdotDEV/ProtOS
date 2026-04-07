@@ -1,0 +1,291 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ProtOS Package Repository</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            font-family: 'Courier New', monospace;
+            background: #0a0a0a;
+            color: #e0e0e0;
+            min-height: 100vh;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+            padding: 3rem 2rem;
+            text-align: center;
+            border-bottom: 2px solid #00ff88;
+        }
+
+        .header pre {
+            color: #00ff88;
+            font-size: 0.7rem;
+            line-height: 1.2;
+            margin-bottom: 1rem;
+            display: inline-block;
+            text-align: left;
+        }
+
+        .header h1 {
+            color: #00ff88;
+            font-size: 1.5rem;
+            margin-bottom: 0.5rem;
+        }
+
+        .header p {
+            color: #8892b0;
+            font-size: 0.9rem;
+        }
+
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 2rem;
+        }
+
+        .section {
+            margin-bottom: 2.5rem;
+        }
+
+        .section h2 {
+            color: #00ff88;
+            font-size: 1.1rem;
+            margin-bottom: 1rem;
+            padding-bottom: 0.5rem;
+            border-bottom: 1px solid #1a1a2e;
+        }
+
+        .code-block {
+            background: #1a1a2e;
+            border: 1px solid #2a2a4e;
+            border-radius: 6px;
+            padding: 1rem;
+            margin: 0.5rem 0 1rem 0;
+            overflow-x: auto;
+            font-size: 0.85rem;
+            line-height: 1.6;
+        }
+
+        .code-block .prompt { color: #00ff88; }
+        .code-block .cmd { color: #e0e0e0; }
+        .code-block .comment { color: #5a6a8a; }
+        .code-block .output { color: #8892b0; }
+
+        .pkg-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 1rem 0;
+        }
+
+        .pkg-table th {
+            text-align: left;
+            color: #00ff88;
+            padding: 0.6rem 1rem;
+            border-bottom: 2px solid #2a2a4e;
+            font-size: 0.85rem;
+        }
+
+        .pkg-table td {
+            padding: 0.6rem 1rem;
+            border-bottom: 1px solid #1a1a2e;
+            font-size: 0.85rem;
+        }
+
+        .pkg-table tr:hover {
+            background: #1a1a2e;
+        }
+
+        .pkg-name {
+            color: #64ffda;
+            font-weight: bold;
+        }
+
+        .pkg-version { color: #ffd700; }
+        .pkg-size { color: #8892b0; }
+
+        .badge {
+            display: inline-block;
+            background: #1a3a2e;
+            color: #00ff88;
+            padding: 0.15rem 0.5rem;
+            border-radius: 3px;
+            font-size: 0.75rem;
+            border: 1px solid #00ff8844;
+        }
+
+        .stats {
+            display: flex;
+            gap: 2rem;
+            justify-content: center;
+            margin: 1.5rem 0;
+        }
+
+        .stat {
+            text-align: center;
+        }
+
+        .stat-value {
+            color: #00ff88;
+            font-size: 1.8rem;
+            font-weight: bold;
+        }
+
+        .stat-label {
+            color: #5a6a8a;
+            font-size: 0.8rem;
+        }
+
+        a {
+            color: #64ffda;
+            text-decoration: none;
+        }
+
+        a:hover {
+            text-decoration: underline;
+        }
+
+        .footer {
+            text-align: center;
+            padding: 2rem;
+            color: #5a6a8a;
+            font-size: 0.8rem;
+            border-top: 1px solid #1a1a2e;
+        }
+
+        @media (max-width: 600px) {
+            .header pre { font-size: 0.45rem; }
+            .stats { flex-direction: column; gap: 1rem; }
+            .container { padding: 1rem; }
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <pre>
+    ____             __  ____  _____
+   / __ \_________  / /_/ __ \/ ___/
+  / /_/ / ___/ __ \/ __/ / / /\__ \
+ / ____/ /  / /_/ / /_/ /_/ /___/ /
+/_/   /_/   \____/\__/\____//____/
+        </pre>
+        <h1>Package Repository</h1>
+        <p>Static packages for ProtOS &mdash; ARM64 Linux from source</p>
+    </div>
+
+    <div class="container">
+        <div class="stats">
+            <div class="stat">
+                <div class="stat-value" id="pkg-count">-</div>
+                <div class="stat-label">Packages</div>
+            </div>
+            <div class="stat">
+                <div class="stat-value">ARM64</div>
+                <div class="stat-label">Architecture</div>
+            </div>
+            <div class="stat">
+                <div class="stat-value">Static</div>
+                <div class="stat-label">Linking</div>
+            </div>
+        </div>
+
+        <div class="section">
+            <h2>Quick Start</h2>
+            <div class="code-block">
+                <span class="comment"># Set up the repository</span><br>
+                <span class="prompt">protos:/#</span> <span class="cmd">protpkg repo <span id="repo-url">https://YOUR_USERNAME.github.io/protos-repo</span></span><br>
+                <br>
+                <span class="comment"># Sync the package index</span><br>
+                <span class="prompt">protos:/#</span> <span class="cmd">protpkg sync</span><br>
+                <span class="output">:: Synchronizing package index...</span><br>
+                <span class="output">>>> Package index synced</span><br>
+                <br>
+                <span class="comment"># Install a package</span><br>
+                <span class="prompt">protos:/#</span> <span class="cmd">protpkg install nano</span><br>
+            </div>
+        </div>
+
+        <div class="section">
+            <h2>Available Packages</h2>
+            <table class="pkg-table">
+                <thead>
+                    <tr>
+                        <th>Package</th>
+                        <th>Version</th>
+                        <th>Size</th>
+                        <th>Description</th>
+                    </tr>
+                </thead>
+                <tbody id="pkg-list">
+                    <tr>
+                        <td colspan="4" style="color: #5a6a8a;">Loading packages...</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+
+        <div class="section">
+            <h2>Commands</h2>
+            <div class="code-block">
+                <span class="cmd">protpkg sync</span>            <span class="comment"># Update package index</span><br>
+                <span class="cmd">protpkg install &lt;pkg&gt;</span>    <span class="comment"># Install a package</span><br>
+                <span class="cmd">protpkg remove &lt;pkg&gt;</span>     <span class="comment"># Remove a package</span><br>
+                <span class="cmd">protpkg search &lt;term&gt;</span>    <span class="comment"># Search packages</span><br>
+                <span class="cmd">protpkg list</span>              <span class="comment"># List installed packages</span><br>
+                <span class="cmd">protpkg upgrade</span>           <span class="comment"># Upgrade all packages</span><br>
+                <span class="cmd">protpkg info &lt;pkg&gt;</span>       <span class="comment"># Show package details</span><br>
+            </div>
+        </div>
+
+        <div class="section">
+            <h2>About</h2>
+            <p style="line-height: 1.6; color: #8892b0;">
+                All packages in this repository are compiled from source and statically linked for
+                ProtOS. No dynamic libraries required &mdash; every binary is self-contained. Packages are
+                built for <span class="badge">aarch64</span> and verified with SHA-256 checksums.
+            </p>
+        </div>
+    </div>
+
+    <div class="footer">
+        ProtOS Package Repository &mdash; All packages compiled from source
+    </div>
+
+    <script>
+        fetch('PACKAGES.idx')
+            .then(r => r.text())
+            .then(text => {
+                const lines = text.trim().split('\n').filter(l => l.length > 0);
+                document.getElementById('pkg-count').textContent = lines.length;
+
+                const tbody = document.getElementById('pkg-list');
+                tbody.innerHTML = '';
+
+                lines.forEach(line => {
+                    const [name, ver, arch, deps, size, sha, desc] = line.split('|');
+                    const tr = document.createElement('tr');
+
+                    const sizeKB = Math.round(parseInt(size) / 1024);
+                    const sizeStr = sizeKB > 1024
+                        ? (sizeKB / 1024).toFixed(1) + ' MiB'
+                        : sizeKB + ' KiB';
+
+                    tr.innerHTML = `
+                        <td><span class="pkg-name">${name}</span></td>
+                        <td><span class="pkg-version">${ver}</span></td>
+                        <td><span class="pkg-size">${sizeStr}</span></td>
+                        <td>${desc || ''}</td>
+                    `;
+                    tbody.appendChild(tr);
+                });
+            })
+            .catch(() => {
+                document.getElementById('pkg-list').innerHTML =
+                    '<tr><td colspan="4" style="color:#5a6a8a;">Could not load package index</td></tr>';
+            });
+    </script>
+</body>
+</html>

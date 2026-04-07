@@ -1,0 +1,7 @@
+#!/bin/sh
+# ProtOS system startup script
+
+# Run any additional startup scripts
+for script in /etc/init.d/S*; do
+    [ -x "$script" ] && "$script" start
+done

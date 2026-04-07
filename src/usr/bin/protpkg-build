@@ -1,0 +1,80 @@
+#!/bin/sh
+# protpkg-build - Build a ProtOS package from a recipe
+# Usage: protpkg-build <recipe-dir>
+set -e
+
+die() { printf "\033[0;31merror:\033[0m %s\n" "$1" >&2; exit 1; }
+msg() { printf "\033[0;34m::\033[0m %s\n" "$1"; }
+ok()  { printf "\033[0;32m>>>\033[0m %s\n" "$1"; }
+
+[ -z "$1" ] && die "Usage: protpkg-build <recipe-dir>"
+
+RECIPE_DIR="$(cd "$1" && pwd)"
+[ ! -f "$RECIPE_DIR/RECIPE" ] && die "No RECIPE file found in $RECIPE_DIR"
+
+# Source the recipe
+. "$RECIPE_DIR/RECIPE"
+
+# Validate required fields
+[ -z "$pkgname" ] && die "RECIPE missing: pkgname"
+[ -z "$pkgver" ]  && die "RECIPE missing: pkgver"
+[ -z "$pkgdesc" ] && die "RECIPE missing: pkgdesc"
+: "${pkgarch:=aarch64}"
+: "${pkgdeps:=-}"
+
+# Set up build environment
+BUILDDIR="/tmp/protpkg-build-$$"
+PKGDIR="$BUILDDIR/pkg"
+OUTDIR="${PROTPKG_OUTDIR:-.}"
+rm -rf "$BUILDDIR"
+mkdir -p "$BUILDDIR/src" "$PKGDIR/data"
+
+msg "Building $pkgname $pkgver..."
+
+# Run the build function if defined
+if type build >/dev/null 2>&1; then
+    msg "Running build()..."
+    cd "$BUILDDIR/src"
+    build
+fi
+
+# Run the package function
+if type package >/dev/null 2>&1; then
+    msg "Running package()..."
+    cd "$BUILDDIR"
+    package
+else
+    die "RECIPE must define a package() function"
+fi
+
+# Create PKGINFO
+cat > "$PKGDIR/PKGINFO" <<EOF
+name=$pkgname
+version=$pkgver
+desc=$pkgdesc
+arch=$pkgarch
+deps=$pkgdeps
+EOF
+
+# Copy post-install script if present
+[ -f "$RECIPE_DIR/post-install.sh" ] && cp "$RECIPE_DIR/post-install.sh" "$PKGDIR/"
+
+# Calculate installed size
+local_size=$(du -sb "$PKGDIR/data" 2>/dev/null | cut -f1 || echo "0")
+echo "size=$local_size" >> "$PKGDIR/PKGINFO"
+
+# Create the package archive
+PKGFILE="${pkgname}-${pkgver}-${pkgarch}.pkg.tar.gz"
+msg "Creating $PKGFILE..."
+cd "$PKGDIR"
+tar czf "$OUTDIR/$PKGFILE" PKGINFO data/ $([ -f post-install.sh ] && echo "post-install.sh")
+
+# Show checksum for index
+SHA=$(sha256sum "$OUTDIR/$PKGFILE" 2>/dev/null | cut -d' ' -f1 || echo "-")
+
+rm -rf "$BUILDDIR"
+
+ok "Package built: $OUTDIR/$PKGFILE"
+echo ""
+echo "Index entry (add to PACKAGES.idx):"
+echo "${pkgname}|${pkgver}|${pkgarch}|${pkgdeps}|${local_size}|${SHA}|${pkgdesc}"

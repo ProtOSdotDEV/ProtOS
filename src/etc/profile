@@ -1,0 +1,15 @@
+#!/bin/sh
+# ProtOS shell profile
+
+export HOME=/root
+export PATH=/bin:/sbin:/usr/bin:/usr/sbin
+export TERM=linux
+export TERMINFO=/etc/terminfo
+export PS1='\[\033[1;32m\]protos\[\033[0m\]:\[\033[1;36m\]\w\[\033[0m\]\$ '
+
+alias ll='ls -la'
+alias cls='clear'
+alias sysinfo='echo "ProtOS v0.1.0"; uname -a; echo "Uptime:"; cat /proc/uptime; echo "Memory:"; cat /proc/meminfo | head -3'
+
+# Show message of the day
+[ -f /etc/motd ] && cat /etc/motd
