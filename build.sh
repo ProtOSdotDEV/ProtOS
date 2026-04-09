@@ -207,6 +207,14 @@ build_kernel() {
             ./scripts/config --enable CONFIG_INET
             ./scripts/config --enable CONFIG_PCI
             ./scripts/config --enable CONFIG_VIRTIO_PCI
+            ./scripts/config --enable CONFIG_DRM
+            ./scripts/config --enable CONFIG_DRM_VIRTIO_GPU
+            ./scripts/config --enable CONFIG_DRM_GEM_SHMEM_HELPER
+            ./scripts/config --enable CONFIG_FB
+            ./scripts/config --enable CONFIG_INPUT_EVDEV
+            ./scripts/config --enable CONFIG_INPUT_KEYBOARD
+            ./scripts/config --enable CONFIG_INPUT_MOUSE
+            ./scripts/config --enable CONFIG_TMPFS_POSIX_ACL
 
             # NVMe support
             ./scripts/config --enable CONFIG_BLK_DEV_NVME
@@ -509,69 +517,95 @@ build_utillinux() {
     ok "util-linux compiled"
 }
 
-build_pacman() {
-    info "Building pacman package manager (static, with all dependencies)..."
-
-    lima_exec "
-        set -e
-        bash '$PROTOS_DIR/scripts/build-pacman.sh' '$BUILD_DIR'
-    "
-
-    ok "pacman built"
-}
-
-bootstrap_arch_base() {
-    info "Downloading Arch Linux ARM base packages (glibc, filesystem, etc.)..."
-
+build_gui() {
+    info "Building GUI stack (Hyperland + kitty terminal)..."
+    
     lima_exec "
         set -e
         BUILD='$BUILD_DIR'
-        BOOTSTRAP_DIR=\"\$BUILD/arch-bootstrap\"
-        mkdir -p \"\$BOOTSTRAP_DIR\"
+        GUI_PREFIX='\$BUILD/gui-install'
+        mkdir -p \$GUI_PREFIX
 
-        # Download core packages from Arch Linux ARM if not already cached
-        MIRROR='http://mirror.archlinuxarm.org/aarch64/core'
-        cd \"\$BOOTSTRAP_DIR\"
+        sudo apt-get update -qq
+        sudo apt-get install -y -qq \
+            cmake meson ninja-build pkg-config g++ \
+            git ca-certificates \
+            libwayland-dev wayland-protocols \
+            libdrm-dev libinput-dev libxkbcommon-dev \
+            libpixman-1-dev libcairo2-dev libpango1.0-dev \
+            libegl-dev libgles-dev libgbm-dev \
+            libseat-dev libudev-dev libdisplay-info-dev \
+            libtomlplusplus-dev libliftoff-dev \
+            libfreetype-dev libfontconfig-dev \
+            libharfbuzz-dev libcft-dev \
+            hwdata glslang-tools \
+            libxml2-dev libsystemd-dev \
+            fonts-liberation \
+            libxcb-composite0-dev libxcb-dri3-dev libxcb-present-dev \
+            libxcb-render0-dev libxcb-shm0-dev libxcb-xfixes0-dev \
+            libxcb-xinput-dev libxcb-icccm4-dev \
+            libxcb-errors-dev libxcb-res0-dev \
+            libxcb-ewmh-dev xwayland \
+            libpcre2-dev uuid-dev \
+            2>&1
+        
+        export PKG_CONFIG_PATH=\$GUI_PREFIX/lib/pkgconfig:\$GUI_PREFIX/lib/aarch64-linux-gnu/pkgconfig:\$GUI_PREFIX/share/pkgconfig:\$PKG_CONFIG_PATH:-}
+        export CMAKE_PREFIX_PATH=\$GUI_PREFIX
+        export CFLAGS=\"-I\$GUI_PREFIX/include\"
+        export CXXFLAGS=\"-I\$GUI_PREFIX/include\"
+        export LDFLAGS=\"-L\$GUI_PREFIX/lib -L\$GUI_PREFIX/lib/aarch64-linux-gnu\"
 
-        # We need these packages for dynamically-linked Arch packages to work:
-        # - filesystem: directory layout and base config
-        # - glibc: dynamic linker + C library
-        # - gcc-libs: libgcc_s, libstdc++ (many packages need these)
-        # - ncurses: libncursesw (nano, etc.)
-        # - readline: libreadline (bash, etc.)
-        # - zlib: libz (very common dependency)
-        # - zstd: libzstd
-        # - xz: liblzma
-        # - bzip2: libbz2
+        # wlroots 0.17.4
+        if [ ! -f \$GUI_PREFIX/lib/libwroots.so ]; then
+            info2() { echo \"  -> Building wlroots...\"; }; info2
+            cd /tmp
+            rm -rf wlroots-0.17.4
+            wget -q https://gitlab.freedesktop.org/wlroots/wlroots/-/archive/0.17.4/wlroots-0.17.4.tar.gz
+            tar xzf wlroots-0.17.4.tar.gz
+            cf wlroots-0.17.4
+            meson setup build \
+                --prefix=\$GUI_PREFIX \
+                --libdir=lib \
+                -Dexamples=false \
+                -Dxwayland=enabled \
+                -Dbackends=drm,libinput \
+                -Drenderers=gles2
+            ninja -C build -j\$(nproc)
+            ninja -C build install
+        fi
 
-        for pkg in filesystem glibc gcc-libs ncurses readline zlib zstd xz bzip2; do
-            if [ ! -d \"\$BOOTSTRAP_DIR/\$pkg-extracted\" ]; then
-                echo \"[INFO] Fetching \$pkg package listing...\"
-                # Get the actual package filename from the repo
-                # Use href extraction to find exact package matches
-                REPO_LIST=\$(curl -sL \"\$MIRROR/\")
-                PKG_FILE=\$(echo \"\$REPO_LIST\" | grep -oP \"href=\\\"\\K\${pkg}-[0-9][^\\\"]*-aarch64\\.pkg\\.tar\\.[gx]z[a-z]*\" | sort -V | tail -1)
-                if [ -z \"\$PKG_FILE\" ]; then
-                    PKG_FILE=\$(echo \"\$REPO_LIST\" | grep -oP \"href=\\\"\\K\${pkg}-[0-9][^\\\"]*-any\\.pkg\\.tar\\.[gx]z[a-z]*\" | sort -V | tail -1)
-                fi
-                if [ -n \"\$PKG_FILE\" ]; then
-                    echo \"[INFO] Downloading \$PKG_FILE...\"
-                    curl -L -# -o \"\$BOOTSTRAP_DIR/\$PKG_FILE\" \"\$MIRROR/\$PKG_FILE\"
-                    mkdir -p \"\$BOOTSTRAP_DIR/\$pkg-extracted\"
-                    tar xf \"\$BOOTSTRAP_DIR/\$PKG_FILE\" -C \"\$BOOTSTRAP_DIR/\$pkg-extracted\" 2>/dev/null || true
-                    echo \"[OK] \$pkg downloaded and extracted\"
-                else
-                    echo \"[WARN] Could not find \$pkg package\"
-                fi
-            else
-                echo \"[OK] \$pkg already cached\"
-            fi
-        done
+        # hyprutils
+        if [ ! -f \$GUI_PREFIX/lib/hyprutils.so ]; then
+            echo \"  -> Building hyprutils...\"
+            cd /tmp
+            rm -rf hyprutils
+            git clone --depth 1 --branch v0.2.3 https://github.com/hyprm/hyperutils.git
+            cd hyprutils
+            cmake -B build \
+                -DCMAKE_INSTALL_PREFIX=\$GUI_PREFIX \
+                -DCMAKE_BUILD_TYPE=Release
+            cmake --build build -j\$(nproc)
+            cmake --install build
+        fi
 
-        echo '[OK] Arch base packages ready'
-    "
+        # hyprlang
+        if [ ! -f \$GUI_PREFIX/lib/libhyprlang.so ]; then
+            echo \"  -> Building hyprlang...\"
+            cd /tmp
+            rm -rf hyprlang
+            git clone --depth 1 --branch v0.5.2 https://github.com/hyprwm/hyprlang.git
+            cd hyprlang
+            cmake -B build \
+                -DCMAKE_INSTALL_PREFIX=\$GUI_PREFIX \
+                -DCMAKE_BUILD_TYPE=Release
+            cmake --build build -j\$(nproc)
+            cmake --install build
+        fi
 
-    ok "Arch base packages downloaded"
+        # hyprwayland-scanner
+        if [ ! -f \$GUI_PREFIX/bin/hyprwayland-scanner ]; then
+        "
+
 }
 
 build_rootfs() {
@@ -708,216 +742,7 @@ shadow: files
 hosts: files dns
 NSS
 
-    # Install pacman
-    info "Installing pacman package manager..."
-    local PACMAN_PREFIX="$BUILD_DIR/pacman-install"
-    if [ -d "$PACMAN_PREFIX" ]; then
-        # Copy pacman binaries
-        for bin in pacman pacman-conf pacman-db-upgrade pacman-key vercmp makepkg; do
-            if [ -f "$PACMAN_PREFIX/bin/$bin" ]; then
-                rm -f "$ROOTFS/usr/bin/$bin"
-                cp "$PACMAN_PREFIX/bin/$bin" "$ROOTFS/usr/bin/$bin"
-                chmod +x "$ROOTFS/usr/bin/$bin"
-            fi
-        done
-        # Copy pacman libs/scripts
-        if [ -d "$PACMAN_PREFIX/share/makepkg" ]; then
-            mkdir -p "$ROOTFS/usr/share"
-            cp -a "$PACMAN_PREFIX/share/makepkg" "$ROOTFS/usr/share/"
-        fi
-        if [ -d "$PACMAN_PREFIX/share/pacman" ]; then
-            cp -a "$PACMAN_PREFIX/share/pacman" "$ROOTFS/usr/share/"
-        fi
-        # Create pacman config
-        mkdir -p "$ROOTFS/etc/pacman.d"
-        cat > "$ROOTFS/etc/pacman.conf" << 'PACCONF'
-#
-# ProtOS pacman configuration
-#
-[options]
-RootDir     = /
-DBPath      = /var/lib/pacman/
-CacheDir    = /var/cache/pacman/pkg/
-LogFile     = /var/log/pacman.log
-GPGDir      = /etc/pacman.d/gnupg/
-HookDir     = /etc/pacman.d/hooks/
-HoldPkg     = busybox
-Architecture = aarch64
-SigLevel    = Never
-
-# Arch Linux ARM repositories
-[core]
-Server = http://mirror.archlinuxarm.org/$arch/$repo
-
-[extra]
-Server = http://mirror.archlinuxarm.org/$arch/$repo
-
-[alarm]
-Server = http://mirror.archlinuxarm.org/$arch/$repo
-
-[aur]
-Server = http://mirror.archlinuxarm.org/$arch/$repo
-PACCONF
-
-        # Create necessary dirs for pacman
-        mkdir -p "$ROOTFS/var/lib/pacman/"{local,sync}
-        mkdir -p "$ROOTFS/var/cache/pacman/pkg"
-        mkdir -p "$ROOTFS/var/log"
-
-        # Create ALPM local database version marker
-        echo "9" > "$ROOTFS/var/lib/pacman/local/ALPM_DB_VERSION"
-
-        ok "pacman installed"
-    else
-        warn "pacman not built — skipping"
-    fi
-
-    # Install Arch Linux ARM base packages (glibc, libs, etc.) into rootfs
-    # This provides the dynamic linker and shared libs so pacman-installed packages can run
-    info "Installing Arch Linux ARM base libraries..."
-    local BOOTSTRAP_DIR="$BUILD_DIR/arch-bootstrap"
-    if [ -d "$BOOTSTRAP_DIR" ]; then
-        for pkg_dir in "$BOOTSTRAP_DIR"/*-extracted; do
-            [ -d "$pkg_dir" ] || continue
-            local pkg_name=$(basename "$pkg_dir" | sed 's/-extracted$//')
-            info "  Installing $pkg_name..."
-            # Copy usr/lib (shared libraries - most important)
-            if [ -d "$pkg_dir/usr/lib" ]; then
-                # Use rsync-like approach: copy files without clobbering our binaries
-                find "$pkg_dir/usr/lib" -type f -o -type l | while read src; do
-                    local rel="${src#$pkg_dir/}"
-                    local dst="$ROOTFS/$rel"
-                    local dst_dir=$(dirname "$dst")
-                    mkdir -p "$dst_dir"
-                    # Don't overwrite our static binaries or existing configs
-                    if [ ! -f "$dst" ] || echo "$rel" | grep -qE '\.so'; then
-                        cp -a "$src" "$dst" 2>/dev/null || true
-                    fi
-                done
-            fi
-            # Copy usr/bin (only if we don't already have the binary)
-            if [ -d "$pkg_dir/usr/bin" ]; then
-                for src in "$pkg_dir/usr/bin"/*; do
-                    [ -f "$src" ] || continue
-                    local name=$(basename "$src")
-                    if [ ! -f "$ROOTFS/usr/bin/$name" ]; then
-                        cp -a "$src" "$ROOTFS/usr/bin/$name" 2>/dev/null || true
-                    fi
-                done
-            fi
-            # Copy usr/sbin
-            if [ -d "$pkg_dir/usr/sbin" ]; then
-                for src in "$pkg_dir/usr/sbin"/*; do
-                    [ -f "$src" ] || continue
-                    local name=$(basename "$src")
-                    if [ ! -f "$ROOTFS/usr/sbin/$name" ]; then
-                        cp -a "$src" "$ROOTFS/usr/sbin/$name" 2>/dev/null || true
-                    fi
-                done
-            fi
-            # Copy usr/share (terminfo, locale, etc.)
-            if [ -d "$pkg_dir/usr/share" ]; then
-                cp -a "$pkg_dir/usr/share/"* "$ROOTFS/usr/share/" 2>/dev/null || true
-            fi
-            # Copy usr/include (headers - needed for some package installs)
-            if [ -d "$pkg_dir/usr/include" ]; then
-                mkdir -p "$ROOTFS/usr/include"
-                cp -a "$pkg_dir/usr/include/"* "$ROOTFS/usr/include/" 2>/dev/null || true
-            fi
-            # Copy etc files (only if we don't already have them)
-            if [ -d "$pkg_dir/etc" ]; then
-                find "$pkg_dir/etc" -type f | while read src; do
-                    local rel="${src#$pkg_dir/}"
-                    local dst="$ROOTFS/$rel"
-                    if [ ! -f "$dst" ]; then
-                        local dst_dir=$(dirname "$dst")
-                        mkdir -p "$dst_dir"
-                        cp -a "$src" "$dst" 2>/dev/null || true
-                    fi
-                done
-            fi
-            # Register this package in pacman's local database
-            if [ -f "$pkg_dir/.PKGINFO" ]; then
-                local p_name=$(grep '^pkgname = ' "$pkg_dir/.PKGINFO" | head -1 | sed 's/^pkgname = //')
-                local p_ver=$(grep '^pkgver = ' "$pkg_dir/.PKGINFO" | head -1 | sed 's/^pkgver = //')
-                local p_desc=$(grep '^pkgdesc = ' "$pkg_dir/.PKGINFO" | head -1 | sed 's/^pkgdesc = //')
-                local p_arch=$(grep '^arch = ' "$pkg_dir/.PKGINFO" | head -1 | sed 's/^arch = //')
-                local p_url=$(grep '^url = ' "$pkg_dir/.PKGINFO" | head -1 | sed 's/^url = //')
-                local p_size=$(grep '^size = ' "$pkg_dir/.PKGINFO" | head -1 | sed 's/^size = //')
-                # Collect depends
-                local p_depends=$(grep '^depend = ' "$pkg_dir/.PKGINFO" | sed 's/^depend = //')
-                # Collect provides
-                local p_provides=$(grep '^provides = ' "$pkg_dir/.PKGINFO" | sed 's/^provides = //')
-                if [ -n "$p_name" ] && [ -n "$p_ver" ]; then
-                    local db_dir="$ROOTFS/var/lib/pacman/local/${p_name}-${p_ver}"
-                    mkdir -p "$db_dir"
-                    # Create desc file in pacman format
-                    {
-                        echo "%NAME%"
-                        echo "${p_name}"
-                        echo ""
-                        echo "%VERSION%"
-                        echo "${p_ver}"
-                        echo ""
-                        echo "%BASE%"
-                        echo "${p_name}"
-                        echo ""
-                        echo "%DESC%"
-                        echo "${p_desc:-Pre-installed by ProtOS}"
-                        echo ""
-                        echo "%ARCH%"
-                        echo "${p_arch:-aarch64}"
-                        echo ""
-                        echo "%URL%"
-                        echo "${p_url:-}"
-                        echo ""
-                        echo "%INSTALLDATE%"
-                        echo "$(date +%s)"
-                        echo ""
-                        echo "%PACKAGER%"
-                        echo "ProtOS Build System"
-                        echo ""
-                        echo "%SIZE%"
-                        echo "${p_size:-0}"
-                        echo ""
-                        echo "%REASON%"
-                        echo "0"
-                        echo ""
-                        if [ -n "$p_depends" ]; then
-                            echo "%DEPENDS%"
-                            echo "$p_depends"
-                            echo ""
-                        fi
-                        if [ -n "$p_provides" ]; then
-                            echo "%PROVIDES%"
-                            echo "$p_provides"
-                            echo ""
-                        fi
-                        echo "%VALIDATION%"
-                        echo "none"
-                        echo ""
-                    } > "$db_dir/desc"
-                    # Create files list (macOS-compatible: no -printf)
-                    {
-                        echo "%FILES%"
-                        (cd "$pkg_dir" && find . \
-                            -not -name '.PKGINFO' -not -name '.MTREE' \
-                            -not -name '.INSTALL' -not -name '.BUILDINFO' \
-                            -not -path '.' | sed 's|^\./||' | sort)
-                        echo ""
-                    } > "$db_dir/files"
-                    # Copy install scriptlet if present
-                    [ -f "$pkg_dir/.INSTALL" ] && cp "$pkg_dir/.INSTALL" "$db_dir/install" 2>/dev/null || true
-                    # Copy mtree
-                    [ -f "$pkg_dir/.MTREE" ] && cp "$pkg_dir/.MTREE" "$db_dir/mtree" 2>/dev/null || true
-                    ok "  Registered $p_name-$p_ver in pacman database"
-                fi
-            fi
-        done
-        ok "Arch base libraries installed"
-    else
-        warn "Arch bootstrap packages not found — skipping"
-    fi
+    
 
     # Install terminfo into /etc/terminfo (first search path for ncurses)
     # IMPORTANT: macOS is case-insensitive so /usr/share/terminfo/l and /L are the same dir.
@@ -955,10 +780,6 @@ PACCONF
     printf '#!/bin/sh\nexec mkdosfs "$@"\n' > "$ROOTFS/sbin/mkfs.fat32"
     chmod +x "$ROOTFS/sbin/mkfs.fat32"
 
-    # ldconfig stub — Arch packages call ldconfig in post-install hooks
-    # but BusyBox doesn't include it. A no-op stub silences the warning.
-    printf '#!/bin/sh\nexit 0\n' > "$ROOTFS/usr/sbin/ldconfig"
-    chmod +x "$ROOTFS/usr/sbin/ldconfig"
 
     # Default DNS resolv.conf (overwritten by DHCP)
     cat > "$ROOTFS/etc/resolv.conf" << 'DNS'
@@ -1041,8 +862,6 @@ do_build() {
     build_e2fsprogs
     build_gptfdisk
     build_utillinux
-    build_pacman
-    bootstrap_arch_base
     build_rootfs
     create_initramfs
 

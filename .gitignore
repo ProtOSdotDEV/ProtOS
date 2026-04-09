@@ -5,3 +5,4 @@ lib
 lib64
 sbin
 bin
+.DS_Store

@@ -1,11 +1,11 @@
 #!/bin/sh
-# ProtOS instalrer script
+# ProtOS instalrer script v.1.0 (working, need to add other functions such as my own version of pacstrap lmao)
 set -e
 
 echo " ProtOS NVMe Installer "
 
 # ifentify the drive
-DISK="/dev/nvmeon1"
+DISK="/dev/nvme0n1"
 
 if [! -b "$DISK" ]; then
     echo "ERROR: No NVMe primary controller found at $DISK"
