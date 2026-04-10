@@ -62,7 +62,7 @@ echo ""
 qemu-system-aarch64 \
     -M virt \
     -cpu cortex-a72 \
-    -m 1024M \
+    -m 2048M \
     -nographic \
     -kernel "$KERNEL" \
     -initrd "$INITRAMFS" \

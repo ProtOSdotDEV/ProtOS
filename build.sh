@@ -232,6 +232,22 @@ build_kernel() {
             ./scripts/config --enable CONFIG_USB_OHCI_HCD
             ./scripts/config --enable CONFIG_USB_OHCI_PCI
 
+            # Squashfs support (for disk-based ISO rootfs)
+            ./scripts/config --enable CONFIG_SQUASHFS
+            ./scripts/config --enable CONFIG_SQUASHFS_ZLIB
+            ./scripts/config --enable CONFIG_SQUASHFS_LZ4
+            ./scripts/config --enable CONFIG_SQUASHFS_ZSTD
+
+            # OverlayFS (writable layer over read-only squashfs)
+            ./scripts/config --enable CONFIG_OVERLAY_FS
+
+            # ISO9660 (mount the ISO from within initramfs)
+            ./scripts/config --enable CONFIG_ISO9660_FS
+            ./scripts/config --enable CONFIG_JOLIET
+
+            # Loop device (for mounting images)
+            ./scripts/config --enable CONFIG_BLK_DEV_LOOP
+
             # Disable unnecessary features to speed up build
             ./scripts/config --disable CONFIG_SOUND
             ./scripts/config --disable CONFIG_WLAN
@@ -518,13 +534,13 @@ build_utillinux() {
 }
 
 build_gui() {
-    info "Building GUI stack (Hyperland + kitty terminal)..."
+    info "Building GUI stack (Hyprland + kitty terminal)..."
     
     lima_exec "
         set -e
         BUILD='$BUILD_DIR'
-        GUI_PREFIX='\$BUILD/gui-install'
-        mkdir -p \$GUI_PREFIX
+        GUI_PREFIX=\"\$BUILD/gui-install\"
+        mkdir -p \$GUI_PREFIX/include \$GUI_PREFIX/lib
 
         sudo apt-get update -qq
         sudo apt-get install -y -qq \
@@ -537,32 +553,49 @@ build_gui() {
             libseat-dev libudev-dev libdisplay-info-dev \
             libtomlplusplus-dev libliftoff-dev \
             libfreetype-dev libfontconfig-dev \
-            libharfbuzz-dev libcft-dev \
+            libharfbuzz-dev libfcft-dev \
             hwdata glslang-tools \
             libxml2-dev libsystemd-dev \
             fonts-liberation \
             libxcb-composite0-dev libxcb-dri3-dev libxcb-present-dev \
             libxcb-render0-dev libxcb-shm0-dev libxcb-xfixes0-dev \
             libxcb-xinput-dev libxcb-icccm4-dev \
-            libxcb-errors-dev libxcb-res0-dev \
+            libxcb-res0-dev \
             libxcb-ewmh-dev xwayland \
-            libpcre2-dev uuid-dev \
+            libpcre2-dev uuid-dev libpugixml-dev libglvnd-dev libxrandr-dev \
+            libxrandr-dev libxinerama-dev libxcursor-dev libxi-dev libxkbfile-dev libxkbcommon-x11-dev libx11-xcb-dev \
+
             2>&1
         
-        export PKG_CONFIG_PATH=\$GUI_PREFIX/lib/pkgconfig:\$GUI_PREFIX/lib/aarch64-linux-gnu/pkgconfig:\$GUI_PREFIX/share/pkgconfig:\$PKG_CONFIG_PATH:-}
+        export PKG_CONFIG_PATH=\$GUI_PREFIX/lib/pkgconfig:\$GUI_PREFIX/lib/aarch64-linux-gnu/pkgconfig:\$GUI_PREFIX/share/pkgconfig:\${PKG_CONFIG_PATH:-}
         export CMAKE_PREFIX_PATH=\$GUI_PREFIX
         export CFLAGS=\"-I\$GUI_PREFIX/include\"
         export CXXFLAGS=\"-I\$GUI_PREFIX/include\"
         export LDFLAGS=\"-L\$GUI_PREFIX/lib -L\$GUI_PREFIX/lib/aarch64-linux-gnu\"
 
+                # seatd
+        if [ ! -f \$GUI_PREFIX/bin/seatd ]; then
+            echo \"  -> Building seatd...\"
+            cd /tmp
+            rm -rf seatd
+            git clone --depth 1 --branch 0.8.0 https://git.sr.ht/~kennylevinsen/seatd
+            cd seatd
+            meson setup build --prefix=\$GUI_PREFIX \
+                -Dlibseat-logind=disabled -Dlibseat-seatd=enabled \
+                -Dlibseat-builtin=enabled -Dserver=enabled
+            ninja -C build -j\$(nproc)
+            ninja -C build install
+        fi
+
+
         # wlroots 0.17.4
-        if [ ! -f \$GUI_PREFIX/lib/libwroots.so ]; then
+        if [ ! -f \$GUI_PREFIX/lib/libwlroots.so ]; then
             info2() { echo \"  -> Building wlroots...\"; }; info2
             cd /tmp
             rm -rf wlroots-0.17.4
             wget -q https://gitlab.freedesktop.org/wlroots/wlroots/-/archive/0.17.4/wlroots-0.17.4.tar.gz
             tar xzf wlroots-0.17.4.tar.gz
-            cf wlroots-0.17.4
+            cd wlroots-0.17.4
             meson setup build \
                 --prefix=\$GUI_PREFIX \
                 --libdir=lib \
@@ -579,7 +612,7 @@ build_gui() {
             echo \"  -> Building hyprutils...\"
             cd /tmp
             rm -rf hyprutils
-            git clone --depth 1 --branch v0.2.3 https://github.com/hyprm/hyperutils.git
+            git clone --depth 1 --branch v0.2.3 https://github.com/hyprwm/hyprutils.git
             cd hyprutils
             cmake -B build \
                 -DCMAKE_INSTALL_PREFIX=\$GUI_PREFIX \
@@ -604,6 +637,84 @@ build_gui() {
 
         # hyprwayland-scanner
         if [ ! -f \$GUI_PREFIX/bin/hyprwayland-scanner ]; then
+        echo \"  -> Building hyprwayland-scanner...\"
+            cd /tmp
+            rm -rf hyprwayland-scanner
+            git clone --depth 1 --branch v0.4.0 https://github.com/hyprwm/hyprwayland-scanner.git
+            cd hyprwayland-scanner
+            cmake -B build \
+                -DCMAKE_INSTALL_PREFIX=\$GUI_PREFIX \
+                -DCMAKE_BUILD_TYPE=Release
+            cmake --build build -j\$(nproc)
+            cmake --install build
+        fi
+
+        # Hyprland
+        if [ ! -f \$GUI_PREFIX/bin/Hyprland ]; then
+            echo \"  -> Building Hyprland...\"
+            if ! g++ -std=c++23 -x c++ -c /dev/null -o /dev/null 2>/dev/null; then
+                sudo apt-get install -y -qq g++-13 2>&1 | tail -1
+                export CXX=g++-13
+                export CC=gcc-13
+            fi
+            cd /tmp
+            rm -rf Hyprland
+            git clone --recursive --depth 1 --branch v0.34.0 https://github.com/hyprwm/Hyprland.git
+            cd Hyprland
+            cmake -B build \
+                -DCMAKE_INSTALL_PREFIX=\$GUI_PREFIX \
+                -DCMAKE_BUILD_TYPE=Release \
+                -DNO_XWAYLAND=OFF
+            cmake --build build -j\$(nproc)
+            cmake --install build
+            cp -f /tmp/Hyprland/build/Hyprland \$GUI_PREFIX/bin/ 2>/dev/null || true
+            cp -f /tmp/Hyprland/build/hyprctl/hyprctl \$GUI_PREFIX/bin/ 2>/dev/null || true
+        fi
+
+        # kitty
+        if [ ! -f \$GUI_PREFIX/bin/kitty ]; then
+            echo \"  -> Building kitty...\"
+            sudo apt-get install -y -qq \
+                libfontconfig-dev libfreetype-dev libharfbuzz-dev \
+                libpng-dev liblcms2-dev libxxhash-dev libcrypt-dev \
+                python3-dev golang libdbus-1-dev libsimde-dev \
+                2>&1 | tail -1
+            cd /tmp
+            rm -rf kitty
+            wget -q https://github.com/kovidgoyal/kitty/releases/download/v0.35.2/kitty-0.35.2.tar.xz
+            tar xf kitty-0.35.2.tar.xz
+
+            # update simde headers
+            cd /tmp
+            rm -rf simde
+            git clone --depth 1 https://github.com/simd-everywhere/simde.git
+            sudo cp -a simde/simde /usr/include
+
+            cd kitty-0.35.2
+            CFLAGS=\"-Wno-error \$CFLAGS\" python3 setup.py linux-package \
+                --prefix=\$GUI_PREFIX \
+                --update-check-interval=0 \
+                --extra-include-dirs=\$GUI_PREFIX/include \
+                --extra-library-dirs=\$GUI_PREFIX/lib
+            if [ -d linux-package ]; then 
+                cp -a linux-package/* \$GUI_PREFIX/
+            fi
+        
+        fi
+
+        # DejaVu fonts
+        FONT_DIR=\$GUI_PREFIX/share/fonts/TTF
+        mkdir -p \$FONT_DIR
+        if [ ! -f \$FONT_DIR/DejaVuSansMono.ttf ]; then
+            echo \"  -> Installing DejaVu fonts...\"
+            cd /tmp
+            wget -q -O dejavu.tar.bz2 https://github.com/dejavu-fonts/dejavu-fonts/releases/download/version_2_37/dejavu-fonts-ttf-2.37.tar.bz2
+            tar xf dejavu.tar.bz2
+            cp dejavu-fonts-ttf-2.37/ttf/*.ttf \$FONT_DIR/
+            rm -rf dejavu-fonts-ttf-2.37 dejavu.tar.bz2
+        fi
+
+        echo \"GUI stack build complete!\"
         "
 
 }
@@ -675,6 +786,117 @@ build_rootfs() {
     mkdir -p "$ROOTFS/var/lib/protpkg/installed"
     mkdir -p "$ROOTFS/var/cache/protpkg"
 
+    # install GUI (hyprland + kitty + lins)
+    info "Installing GUI components..."
+    local GUI_PREFIX="$BUILD_DIR/gui-install"
+    if [ -d "$GUI_PREFIX" ]; then
+        # copy binaries
+        for bin in Hyprland hyprctl kitty seatd; do
+            if [ -f "$GUI_PREFIX/bin/$bin" ]; then
+                rm -f "$ROOTFS/usr/bin/$bin"
+                cp "$GUI_PREFIX/bin/$bin" "$ROOTFS/usr/bin/$bin"
+                chmod +x "$ROOTFS/usr/bin/$bin"
+            fi
+        done
+        # copy shared libraeies
+        mkdir -p "$ROOTFS/usr/lib"
+        cp -a "$GUI_PREFIX/lib/"*.so* "$ROOTFS/usr/lib/" 2>/dev/null || true
+        cp -a "$GUI_PREFIX/lib/aarch64-linux-gnu/"*.so* "$ROOTFS/usr/lib" 2>/dev/null || true
+
+        # copy libdrn, mesa, etc. subdirs
+        [ -d "$GUI_PREFIX/lib/dri" ] && cp -a "$GUI_PREFIX/lib/dri" "$ROOTFS/usr/lib"
+
+        # copy wayland protocols and pkgconfig (needed for runtime)
+        mkdir -p "$ROOTFS/usr/share"
+        [ -d "$GUI_PREFIX/share/wayland" ] && cp -a "$GUI_PREFIX/share/wayland" "$ROOTFS/usr/share"
+
+        # Copy important hyprland files
+        [ -d "$GUI_PREFIX/share/hyprland" ] && cp -a "$GUI_PREFIX/share/hyprland" "$ROOTFS/usr/share"
+
+        # copying other shit, these comments are probably just making me look unprofessional
+        [ -d "$GUI_PREFIX/share/fonts" ] && cp -a "$GUI_PREFIX/share/fonts" "$ROOTFS/usr/share"
+
+        [ -d "$GUI_PREFIX/share/X11" ] && cp -a "$GUI_PREFIX/share/X11" "$ROOTFS/usr/share"
+
+        # install configs (Hyprland looks for $XDG_CONFIG_HOME/hypr/ not hyprland/)
+        mkdir -p "$ROOTFS/etc/hypr" "$ROOTFS/etc/kitty"
+        cp "$SRC_DIR/etc/kitty/kitty.conf" "$ROOTFS/etc/kitty"
+        cp "$SRC_DIR/etc/hyprland/hyprland.conf" "$ROOTFS/etc/hypr/hyprland.conf"
+
+        [ -d "$GUI_PREFIX/lib/kitty" ] && cp -a "$GUI_PREFIX/lib/kitty" "$ROOTFS/usr/lib"
+        [ -d "$GUI_PREFIX/share/kitty" ] && cp -a "$GUI_PREFIX/share/kitty" "$ROOTFS/usr/share"
+
+        # install start script
+        cp "$SRC_DIR/usr/bin/start-hyprland" "$ROOTFS/usr/bin/start-hyprland"
+        chmod +x "$ROOTFS/usr/bin/start-hyprland"
+
+        # dynamic linker and system libs from Lima VM (these don't exist on macOS)
+        # Note: /lib is a symlink to usr/lib in merged-usr, so put everything in usr/lib
+        lima_exec "
+            ROOTFS='$BUILD_DIR/rootfs'
+            GUI_PREFIX='$BUILD_DIR/gui-install'
+
+            # Copy dynamic linker into usr/lib (since /lib -> usr/lib in merged-usr)
+            INTERP=\$(find /lib/aarch64-linux-gnu /usr/lib/aarch64-linux-gnu -name 'ld-linux-aarch64.so.1' 2>/dev/null | head -1)
+            if [ -n \"\$INTERP\" ]; then
+                cp \"\$INTERP\" \"\$ROOTFS/usr/lib/ld-linux-aarch64.so.1\"
+            fi
+
+            # Copy all system shared libraries needed by Hyprland, seatd, kitty
+            for lib in libc.so.6 libm.so.6 libdl.so.2 librt.so.1 libpthread.so.0 libgcc_s.so.1 libstdc++.so.6 libsystemd.so.0 libwayland-server.so.0 libwayland-client.so.0 libEGL.so.1 libGLESv2.so.2 libOpenGL.so.0 libGLdispatch.so.0 libxcb.so.1 libX11.so.6 libXext.so.6 libdrm.so.2 libxkbcommon.so.0 libinput.so.10 libpixman-1.so.0 libcairo.so.2 libpango-1.0.so.0 libpangocairo-1.0.so.0 libpangoft2-1.0.so.0 libgobject-2.0.so.0 libglib-2.0.so.0 libffi.so.8 libevdev.so.2 libmtdev.so.1 libseat.so.1 libudev.so.1 libgbm.so.1 libfontconfig.so.1 libfreetype.so.6 libharfbuzz.so.0 libpng16.so.16 liblcms2.so.2 libdbus-1.so.3 libexpat.so.1 libz.so.1 libpcre2-8.so.0 libfribidi.so.0 libXau.so.6 libXdmcp.so.6 libbsd.so.0 libmd.so.0 libcap.so.2 liblzma.so.5 libzstd.so.1 libgcrypt.so.20 libgpg-error.so.0 libgio-2.0.so.0 libgmodule-2.0.so.0 libcrypto.so.3 libXrender.so.1 libxcb-render.so.0 libxcb-shm.so.0 libxcb-composite.so.0 libxcb-ewmh.so.2 libxcb-icccm.so.4 libxcb-res.so.0 libxcb-xfixes.so.0 libthai.so.0 libdatrie.so.1 libgraphite2.so.3 libbrotlidec.so.1 libbrotlicommon.so.1 liblz4.so.1 libblkid.so.1 libmount.so.1 libbz2.so.1.0 libdisplay-info.so.1 libliftoff.so.0 libgudev-1.0.so.0 libwacom.so.9 libselinux.so.1 libEGL_mesa.so.0 libGLX_mesa.so.0 libxcb-randr.so.0 libxcb-dri2.so.0 libxcb-dri3.so.0 libxcb-present.so.0 libxcb-sync.so.1 libxcb-glx.so.0 libxshmfence.so.1 libwayland-egl.so.1 libdrm_amdgpu.so.1 libedit.so.2 libicudata.so.74 libicuuc.so.74 libsensors.so.5 libtinfo.so.6 libxml2.so.2 libX11-xcb.so.1; do
+                src=\$(find /lib/aarch64-linux-gnu /usr/lib/aarch64-linux-gnu -name \"\$lib\" 2>/dev/null | head -1)
+                [ -n \"\$src\" ] && cp \"\$src\" \"\$ROOTFS/usr/lib/\" 2>/dev/null || true
+            done
+
+            # Copy wlroots from gui-install (it was 'not found' in ldd)
+            cp \"\$GUI_PREFIX/lib/\"libwlroots*.so* \"\$ROOTFS/usr/lib/\" 2>/dev/null || true
+            cp \"\$GUI_PREFIX/lib/\"libhypr*.so* \"\$ROOTFS/usr/lib/\" 2>/dev/null || true
+            cp \"\$GUI_PREFIX/lib/\"libseat*.so* \"\$ROOTFS/usr/lib/\" 2>/dev/null || true
+
+            # Copy Mesa DRI drivers for software rendering in VMs
+            # Mesa 25.x uses libdril_dri.so (shim) + libgallium-*.so (actual driver)
+            mkdir -p \"\$ROOTFS/usr/lib/dri\"
+            cp /usr/lib/aarch64-linux-gnu/dri/libdril_dri.so \"\$ROOTFS/usr/lib/dri/\" 2>/dev/null || true
+            # Create symlinks that Mesa looks for
+            for drv in swrast_dri.so kms_swrast_dri.so virtio_gpu_dri.so; do
+                ln -sf libdril_dri.so \"\$ROOTFS/usr/lib/dri/\$drv\"
+            done
+            # Also copy from gui-install if mesa was built there
+            [ -d \"\$GUI_PREFIX/lib/dri\" ] && cp \"\$GUI_PREFIX/lib/dri/\"*.so \"\$ROOTFS/usr/lib/dri/\" 2>/dev/null || true
+
+            # Copy libgallium (the actual Mesa gallium megadriver, loaded by libdril_dri.so)
+            cp /usr/lib/aarch64-linux-gnu/libgallium-*.so \"\$ROOTFS/usr/lib/\" 2>/dev/null || true
+
+            # Copy libLLVM (needed for llvmpipe software renderer)
+            for llvmlib in libLLVM.so.20.1 libLLVM.so.20 libLLVM-20.so libLLVM.so.1; do
+                src=\$(find /usr/lib/aarch64-linux-gnu -name \"\$llvmlib\" 2>/dev/null | head -1)
+                [ -n \"\$src\" ] && cp \"\$src\" \"\$ROOTFS/usr/lib/\" && break
+            done
+
+            # Copy libelf (needed by libgallium/LLVM)
+            src=\$(find /usr/lib/aarch64-linux-gnu /lib/aarch64-linux-gnu -name 'libelf.so.1' -o -name 'libelf-*.so' 2>/dev/null | head -1)
+            [ -n \"\$src\" ] && cp \"\$src\" \"\$ROOTFS/usr/lib/libelf.so.1\"
+        "
+
+        # Create ld.so.conf so dynamic linker finds libs in /usr/lib
+        echo "/usr/lib" > "$ROOTFS/etc/ld.so.conf"
+
+        # Create GLVND EGL vendor manifest so libEGL.so.1 can find Mesa's EGL
+        mkdir -p "$ROOTFS/usr/share/glvnd/egl_vendor.d"
+        cat > "$ROOTFS/usr/share/glvnd/egl_vendor.d/50_mesa.json" << 'EOFGL'
+{
+    "file_format_version" : "1.0.0",
+    "ICD" : {
+        "library_path" : "libEGL_mesa.so.0"
+    }
+}
+EOFGL
+
+        ok "GUI components installed"
+    else
+        warn "GUI not built - skipping (run scripts/build-gui.sh first)"
+    fi
+
     # Install extra static binaries for installer
     info "Installing mkfs.ext4 and sgdisk..."
     rm -f "$ROOTFS/sbin/mkfs.ext4"
@@ -719,6 +941,9 @@ build_rootfs() {
     # Create essential system files
     echo "root:x:0:0:root:/root:/bin/sh" > "$ROOTFS/etc/passwd"
     echo "root:x:0:" > "$ROOTFS/etc/group"
+    echo "video:x:44:root" >> "$ROOTFS/etc/group"
+    echo "input:x:104:root" >> "$ROOTFS/etc/group"
+    echo "render:x:106:root" >> "$ROOTFS/etc/group"
     echo "root::0:0:99999:7:::" > "$ROOTFS/etc/shadow"
     chmod 600 "$ROOTFS/etc/shadow"
 
@@ -824,6 +1049,7 @@ create_initramfs() {
         chmod +x \"\$TMPROOT/etc/shell-login\" \"\$TMPROOT/etc/init.d/rcS\" \"\$TMPROOT/etc/udhcpc.sh\" 2>/dev/null || true
         chmod +x \"\$TMPROOT/etc/installer.sh\" 2>/dev/null || true
         chmod +x \"\$TMPROOT/etc/install_protos.sh\" 2>/dev/null || true
+        chmod +x \"\$TMPROOT/usr/bin/start-hyprland\" 2>/dev/null || true
 
 
         # Fix terminfo case-sensitivity: create lowercase dirs with copies of uppercase content
@@ -862,6 +1088,7 @@ do_build() {
     build_e2fsprogs
     build_gptfdisk
     build_utillinux
+    build_gui
     build_rootfs
     create_initramfs
 

@@ -1,0 +1,109 @@
+#!/bin/sh
+# ProtOS ISO Init — minimal initramfs that mounts squashfs from ISO
+# This script runs from the tiny initramfs, finds the ISO,
+# mounts the squashfs rootfs with an overlayfs writable layer,
+# then switch_root into the real system.
+
+# Mount essential virtual filesystems
+mount -t proc none /proc
+mount -t sysfs none /sys
+mount -t devtmpfs none /dev
+mount -t tmpfs none /tmp
+
+echo "ProtOS: Mounting root filesystem from ISO..."
+
+# Wait for block devices to appear
+sleep 1
+mdev -s 2>/dev/null || true
+
+# Try to find and mount the ISO/disk containing our squashfs
+# For CD-ROM: /dev/sr0
+# For virtio disk (UTM/QEMU): /dev/vda, /dev/vdb
+# For USB: /dev/sda, /dev/sdb
+# For NVMe: /dev/nvme0n1
+mkdir -p /mnt/iso /mnt/squash /mnt/tmpfs /mnt/root
+
+ISO_FOUND=0
+for dev in /dev/sr0 /dev/vda /dev/vdb /dev/sda /dev/sdb /dev/nvme0n1; do
+    [ -b "$dev" ] || continue
+    if mount -t iso9660 -o ro "$dev" /mnt/iso 2>/dev/null; then
+        if [ -f /mnt/iso/boot/protos/rootfs.squashfs ]; then
+            ISO_FOUND=1
+            break
+        fi
+        umount /mnt/iso
+    fi
+    # Also try without specifying fs type (for raw disk images)
+    if mount -o ro "$dev" /mnt/iso 2>/dev/null; then
+        if [ -f /mnt/iso/boot/protos/rootfs.squashfs ]; then
+            ISO_FOUND=1
+            break
+        fi
+        umount /mnt/iso
+    fi
+done
+
+# Also try partition devices if whole-disk didn't work
+if [ "$ISO_FOUND" = "0" ]; then
+    for dev in /dev/vda1 /dev/sda1 /dev/nvme0n1p1; do
+        [ -b "$dev" ] || continue
+        if mount -o ro "$dev" /mnt/iso 2>/dev/null; then
+            if [ -f /mnt/iso/boot/protos/rootfs.squashfs ]; then
+                ISO_FOUND=1
+                break
+            fi
+            umount /mnt/iso
+        fi
+    done
+fi
+
+if [ "$ISO_FOUND" = "0" ]; then
+    echo "ERROR: Could not find ProtOS rootfs.squashfs on any device!"
+    echo "Available block devices:"
+    ls /dev/sd* /dev/vd* /dev/sr* /dev/nvme* 2>/dev/null
+    echo ""
+    echo "Dropping to emergency shell..."
+    exec /bin/sh
+fi
+
+echo "ProtOS: Found rootfs on $dev"
+
+# Mount the squashfs (read-only)
+if ! mount -t squashfs -o ro /mnt/iso/boot/protos/rootfs.squashfs /mnt/squash; then
+    echo "ERROR: Failed to mount rootfs.squashfs!"
+    echo "Dropping to emergency shell..."
+    exec /bin/sh
+fi
+
+echo "ProtOS: Squashfs mounted, setting up overlay..."
+
+# Create writable overlay using tmpfs
+mount -t tmpfs -o size=50% tmpfs /mnt/tmpfs
+mkdir -p /mnt/tmpfs/upper /mnt/tmpfs/work
+
+# Mount overlayfs: squashfs (lower/ro) + tmpfs (upper/rw)
+if mount -t overlay overlay -o lowerdir=/mnt/squash,upperdir=/mnt/tmpfs/upper,workdir=/mnt/tmpfs/work /mnt/root; then
+    echo "ProtOS: Overlay filesystem ready"
+else
+    # Fallback: if overlayfs fails, just use squashfs read-only
+    echo "WARN: OverlayFS failed, using read-only squashfs"
+    umount /mnt/root 2>/dev/null
+    mount --move /mnt/squash /mnt/root
+fi
+
+# Move virtual filesystems into new root
+mkdir -p /mnt/root/proc /mnt/root/sys /mnt/root/dev /mnt/root/tmp /mnt/root/run
+mount --move /proc /mnt/root/proc
+mount --move /sys /mnt/root/sys
+mount --move /dev /mnt/root/dev
+mount --move /tmp /mnt/root/tmp
+
+# Create mount points for ISO and squashfs inside new root
+# (so they stay mounted and accessible for the installer)
+mkdir -p /mnt/root/mnt/iso /mnt/root/mnt/squash
+mount --move /mnt/iso /mnt/root/mnt/iso 2>/dev/null || true
+
+echo "ProtOS: Switching root..."
+
+# Switch to the real root filesystem
+exec switch_root /mnt/root /sbin/init

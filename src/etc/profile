@@ -3,6 +3,7 @@
 
 export HOME=/root
 export PATH=/bin:/sbin:/usr/bin:/usr/sbin
+export LD_LIBRARY_PATH=/usr/lib
 export TERM=linux
 export TERMINFO=/etc/terminfo
 export PS1='\[\033[1;32m\]protos\[\033[0m\]:\[\033[1;36m\]\w\[\033[0m\]\$ '
@@ -13,3 +14,7 @@ alias sysinfo='echo "ProtOS v0.1.0"; uname -a; echo "Uptime:"; cat /proc/uptime;
 
 # Show message of the day
 [ -f /etc/motd ] && cat /etc/motd
+
+#if [ "$(tty)" = "/dev/tty1" ] && ! pidof Hyprland >/dev/null 2>&1; then
+#    start-hyprland
+#fi
