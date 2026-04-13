@@ -3,11 +3,17 @@
 # Compiles Linux kernel and BusyBox from source using a Lima Linux VM
 set -e
 
+clear
+
+
 PROTOS_DIR="$(cd "$(dirname "$0")" && pwd)"
 BUILD_DIR="$PROTOS_DIR/build"
 OUT_DIR="$PROTOS_DIR/out"
 SRC_DIR="$PROTOS_DIR/src"
 DOWNLOAD_DIR="$BUILD_DIR/downloads"
+
+# clear old temp lib/lib64/bin/sbin files created in build dir
+rm -rf $PROTOS_DIR/bin $PROTOS_DIR/sbin $PROTOS_DIR/lib $PROTOS_DIR/lib64 
 
 # Source versions
 KERNEL_VERSION="6.6.70"
@@ -182,88 +188,88 @@ build_kernel() {
 
         cd \"\$BUILD/linux-\${KERNEL_VERSION}\"
 
-        # Configure kernel - start with defconfig, then apply our customizations
-        if [ ! -f .config ] || [ '$SRC_DIR/kernel.config' -nt .config ] 2>/dev/null; then
-            echo '[CONFIG] Generating kernel config...'
-            make ARCH=arm64 defconfig
+        # Configure kernel - start with defconfig, then apply the customizations
+        rm -rf \$BUILD_DIR/linux-\${KERNEL_VERSION}/.config
+        echo '[CONFIG] Generating kernel config...'
+        make ARCH=arm64 defconfig
 
-            # Enable key features for our OS
-            ./scripts/config --enable CONFIG_BLK_DEV_INITRD
-            ./scripts/config --enable CONFIG_RD_GZIP
-            ./scripts/config --enable CONFIG_DEVTMPFS
-            ./scripts/config --enable CONFIG_DEVTMPFS_MOUNT
-            ./scripts/config --enable CONFIG_TTY
-            ./scripts/config --enable CONFIG_SERIAL_AMBA_PL011
-            ./scripts/config --enable CONFIG_SERIAL_AMBA_PL011_CONSOLE
-            ./scripts/config --enable CONFIG_PRINTK
-            ./scripts/config --enable CONFIG_PROC_FS
-            ./scripts/config --enable CONFIG_SYSFS
-            ./scripts/config --enable CONFIG_TMPFS
-            ./scripts/config --enable CONFIG_EXT4_FS
-            ./scripts/config --enable CONFIG_VIRTIO_BLK
-            ./scripts/config --enable CONFIG_VIRTIO_NET
-            ./scripts/config --enable CONFIG_VIRTIO_MMIO
-            ./scripts/config --enable CONFIG_NET
-            ./scripts/config --enable CONFIG_INET
-            ./scripts/config --enable CONFIG_PCI
-            ./scripts/config --enable CONFIG_VIRTIO_PCI
-            ./scripts/config --enable CONFIG_DRM
-            ./scripts/config --enable CONFIG_DRM_VIRTIO_GPU
-            ./scripts/config --enable CONFIG_DRM_GEM_SHMEM_HELPER
-            ./scripts/config --enable CONFIG_FB
-            ./scripts/config --enable CONFIG_INPUT_EVDEV
-            ./scripts/config --enable CONFIG_INPUT_KEYBOARD
-            ./scripts/config --enable CONFIG_INPUT_MOUSE
-            ./scripts/config --enable CONFIG_TMPFS_POSIX_ACL
+        # Enable key features for the OS
+        ./scripts/config --enable CONFIG_BLK_DEV_INITRD
+        ./scripts/config --enable CONFIG_RD_GZIP
+        ./scripts/config --enable CONFIG_DEVTMPFS
+        ./scripts/config --enable CONFIG_DEVTMPFS_MOUNT
+        ./scripts/config --enable CONFIG_TTY
+        ./scripts/config --enable CONFIG_SERIAL_AMBA_PL011
+        ./scripts/config --enable CONFIG_SERIAL_AMBA_PL011_CONSOLE
+        ./scripts/config --enable CONFIG_PRINTK
+        ./scripts/config --enable CONFIG_PROC_FS
+        ./scripts/config --enable CONFIG_SYSFS
+        ./scripts/config --enable CONFIG_TMPFS
+        ./scripts/config --enable CONFIG_EXT4_FS
+        ./scripts/config --enable CONFIG_VIRTIO_BLK
+        ./scripts/config --enable CONFIG_VIRTIO_NET
+        ./scripts/config --enable CONFIG_VIRTIO_MMIO
+        ./scripts/config --enable CONFIG_NET
+        ./scripts/config --enable CONFIG_INET
+        ./scripts/config --enable CONFIG_PCI
+        ./scripts/config --enable CONFIG_VIRTIO_PCI
+        ./scripts/config --enable CONFIG_DRM
+        ./scripts/config --enable CONFIG_DRM_VIRTIO_GPU
+        ./scripts/config --enable CONFIG_DRM_GEM_SHMEM_HELPER
+        ./scripts/config --enable CONFIG_FB
+        ./scripts/config --enable CONFIG_INPUT_EVDEV
+        ./scripts/config --enable CONFIG_INPUT_KEYBOARD
+        ./scripts/config --enable CONFIG_INPUT_MOUSE
+        ./scripts/config --enable CONFIG_TMPFS_POSIX_ACL
 
-            # NVMe support
-            ./scripts/config --enable CONFIG_BLK_DEV_NVME
-            ./scripts/config --enable CONFIG_NVME_CORE
+        # NVMe support
+        ./scripts/config --enable CONFIG_BLK_DEV_NVME
+        ./scripts/config --enable CONFIG_NVME_CORE
 
-            # Display support (needed for UTM/virtio-gpu and EFI framebuffer)
-            ./scripts/config --enable CONFIG_DRM
-            ./scripts/config --enable CONFIG_DRM_VIRTIO_GPU
-            ./scripts/config --enable CONFIG_DRM_SIMPLEDRM
-            ./scripts/config --enable CONFIG_SYSFB_SIMPLEFB
+        # Display support (needed for UTM/virtio-gpu and EFI framebuffer)
+        ./scripts/config --enable CONFIG_DRM
+        ./scripts/config --enable CONFIG_DRM_VIRTIO_GPU
+        ./scripts/config --enable CONFIG_DRM_SIMPLEDRM
+        ./scripts/config --enable CONFIG_SYSFB_SIMPLEFB
 
-            # Input support (keyboard/mouse in UTM and USB)
-            ./scripts/config --enable CONFIG_VIRTIO_INPUT
-            ./scripts/config --enable CONFIG_USB_XHCI_PCI
-            ./scripts/config --enable CONFIG_USB_OHCI_HCD
-            ./scripts/config --enable CONFIG_USB_OHCI_PCI
+        # Input support (keyboard/mouse in UTM and USB)
+        ./scripts/config --enable CONFIG_VIRTIO_INPUT
+        ./scripts/config --enable CONFIG_USB_XHCI_PCI
+        ./scripts/config --enable CONFIG_USB_OHCI_HCD
+        ./scripts/config --enable CONFIG_USB_OHCI_PCI
 
-            # Squashfs support (for disk-based ISO rootfs)
-            ./scripts/config --enable CONFIG_SQUASHFS
-            ./scripts/config --enable CONFIG_SQUASHFS_ZLIB
-            ./scripts/config --enable CONFIG_SQUASHFS_LZ4
-            ./scripts/config --enable CONFIG_SQUASHFS_ZSTD
+        # Squashfs support (for disk-based ISO rootfs)
+        ./scripts/config --enable CONFIG_SQUASHFS
+        ./scripts/config --enable CONFIG_SQUASHFS_ZLIB
+        ./scripts/config --enable CONFIG_SQUASHFS_LZ4
+        ./scripts/config --enable CONFIG_SQUASHFS_ZSTD
 
-            # OverlayFS (writable layer over read-only squashfs)
-            ./scripts/config --enable CONFIG_OVERLAY_FS
+        # OverlayFS (writable layer over read-only squashfs)
+        ./scripts/config --enable CONFIG_OVERLAY_FS
 
-            # ISO9660 (mount the ISO from within initramfs)
-            ./scripts/config --enable CONFIG_ISO9660_FS
-            ./scripts/config --enable CONFIG_JOLIET
+        # ISO9660 (mount the ISO from within initramfs)
+        ./scripts/config --enable CONFIG_ISO9660_FS
+        ./scripts/config --enable CONFIG_JOLIET
 
-            # Loop device (for mounting images)
-            ./scripts/config --enable CONFIG_BLK_DEV_LOOP
+        # Loop device (for mounting images)
+        ./scripts/config --enable CONFIG_BLK_DEV_LOOP
 
-            # Disable unnecessary features to speed up build
-            ./scripts/config --disable CONFIG_SOUND
-            ./scripts/config --disable CONFIG_WLAN
-            ./scripts/config --disable CONFIG_WIRELESS
-            ./scripts/config --disable CONFIG_BLUETOOTH
-            ./scripts/config --disable CONFIG_NFS_FS
-            ./scripts/config --disable CONFIG_CIFS
-            ./scripts/config --disable CONFIG_DEBUG_INFO_BTF
+        # Disable unnecessary features to speed up build
+        ./scripts/config --disable CONFIG_SOUND
+        ./scripts/config --disable CONFIG_WLAN
+        ./scripts/config --disable CONFIG_WIRELESS
+        ./scripts/config --disable CONFIG_BLUETOOTH
+        ./scripts/config --disable CONFIG_NFS_FS
+        ./scripts/config --disable CONFIG_CIFS
+        ./scripts/config --disable CONFIG_DEBUG_INFO_BTF
 
-            make ARCH=arm64 olddefconfig
+        make ARCH=arm64 olddefconfig
 
-            # Force these to built-in (olddefconfig reverts them to =m)
-            ./scripts/config --set-val CONFIG_USB_XHCI_PCI y
-            ./scripts/config --set-val CONFIG_USB_XHCI_PCI_RENESAS y
-            make ARCH=arm64 olddefconfig
-        fi
+        # Force these to built-in (olddefconfig reverts them to =m)
+        ./scripts/config --set-val CONFIG_USB_XHCI_PCI y
+        ./scripts/config --set-val CONFIG_USB_XHCI_PCI_RENESAS y
+        make ARCH=arm64 olddefconfig
+        
 
         # Build kernel
         echo '[BUILD] Compiling kernel (using all CPU cores)...'
@@ -1026,35 +1032,71 @@ create_initramfs() {
         OUT='$OUT_DIR'
         TMPROOT='/tmp/protos-rootfs-cpio'
 
-        # Copy rootfs to case-sensitive local filesystem
-        # Use tar to preserve symlinks and all file types reliably across the Lima mount
         sudo rm -rf \"\$TMPROOT\"
         mkdir -p \"\$TMPROOT\"
-        cd \"\$ROOTFS\"
-        tar cf - . | (cd \"\$TMPROOT\" && tar xf -)
 
-        # Recreate merged-usr symlinks (macOS mount doesn't preserve them)
+        mkdir -p \"\$TMPROOT\"/{bin,sbin,dev,proc,sys,tmp,run,mnt,usr/bin,usr/sbin,usr/lib}
         cd \"\$TMPROOT\"
-        rm -rf bin sbin lib lib64 2>/dev/null || true
-        ln -sf usr/bin bin
-        ln -sf usr/sbin sbin
         ln -sf usr/lib lib
         ln -sf usr/lib lib64
 
-        # Fix execute permissions (macOS mount strips them)
+        # copy busybox
+        cp \"\$ROOTFS/usr/bin/busybox\" \"\$TMPROOT/bin/busybox\"
+        chmod +x \"\$TMPROOT/bin/busybox\"
+
+        for cmd in sh mount umount mkdir ls cat echo sleep switch_root mdev findfs; do
+            ln -sf busybox \"\$TMPROOT/bin/\$cmd\"
+        done
+
+        cp '$SRC_DIR/init-iso' \"\$TMPROOT/init\"
         chmod +x \"\$TMPROOT/init\"
-        find \"\$TMPROOT/usr/bin\" -type f -exec chmod +x {} +
-        find \"\$TMPROOT/usr/sbin\" -type f -exec chmod +x {} +
-        find \"\$TMPROOT/usr/lib\" -name '*.so*' -type f -exec chmod +x {} + 2>/dev/null || true
-        chmod +x \"\$TMPROOT/etc/shell-login\" \"\$TMPROOT/etc/init.d/rcS\" \"\$TMPROOT/etc/udhcpc.sh\" 2>/dev/null || true
-        chmod +x \"\$TMPROOT/etc/installer.sh\" 2>/dev/null || true
-        chmod +x \"\$TMPROOT/etc/install_protos.sh\" 2>/dev/null || true
-        chmod +x \"\$TMPROOT/usr/bin/start-hyprland\" 2>/dev/null || true
 
+        cd \"\$TMPROOT\"
+        sudo chown -R 0:0 \"\$TMPROOT\"
+        find . | cpio -H newc -o --quiet 2>/dev/null | gzip -9 > \"\$OUT/initramfs.cpio.gz\"
 
-        # Fix terminfo case-sensitivity: create lowercase dirs with copies of uppercase content
-        cd \"\$TMPROOT/usr/share/terminfo\" 2>/dev/null || true
-        for upper_dir in A B C D E F G H I J K L M N O P Q R S T U V W X Y Z; do
+        sudo rm -rf \"\$TMPROOT\"
+
+    "
+    ok "initramfs created: $OUT_DIR/initramfs.cpio.gz ($(du -h "$OUT_DIR/initramfs.cpio.gz" | cut -f1))"
+}
+
+create_squashfs() {
+    info "Creating squashfs root filesystem image..."
+    mkdir -p "$OUT_DIR"
+
+    lima_exec "
+       set -e
+       ROOTFS='$BUILD_DIR/rootfs'
+       OUT='$OUT_DIR'
+       TMPROOT='/tmp/protos-rootfs-squash'
+
+       which mksquashfs >/dev/null 2>&1 || sudo apt-get install -q squashfs-tools
+
+       sudo rm -rf \"\$TMPROOT\"
+       mkdir -p \"\$TMPROOT\"
+       cd \"\$ROOTFS\"
+       tar cf - . | (cd \"\$TMPROOT\" && tar xf -)
+
+       cd \"\$TMPROOT\"
+       rm -rf bin sbin lib lib64 2>/dev/null || true
+       ln -sf usr/bin bin
+       ln -sf usr/sbin sbin
+       ln -sf usr/lib lib
+       ln -sf usr/lib lib64
+
+       chmod +x \"\$TMPROOT/init\"
+       find \"\$TMPROOT/usr/bin\" -type f -exec chmod +x {} +
+       find \"\$TMPROOT/usr/sbin\" -type f -exec chmod +x {} +
+       find \"\$TMPROOT/usr/lib\" -type f -exec chmod +x {} +
+       chmod +x \"\$TMPROOT/etc/shell-login\" \"\$TMPROOT/etc/init.d/rcS\" \"\$TMPROOT/etc/udhcpc.sh\" 2>/dev/null || true
+       chmod +x \"\$TMPROOT/etc/installer.sh\" 2>/dev/null || true
+       chmod +x \"\$TMPROOT/etc/install_protos.sh\" 2>/dev/null || true
+       chmod +x \"\$TMPROOT/usr/bin/start-hyprland\" 2>/dev/null || true
+
+       # fix terminfo case sensitivity
+       cd \"\$TMPROOT/usr/share/terminfo\" 2>/dev/null || true
+       for upper_dir in A B C D E F G H I J K L M N O P Q R S T U V W X Y Z; do
             lower_dir=\$(echo \"\$upper_dir\" | tr 'A-Z' 'a-z')
             if [ -d \"\$upper_dir\" ]; then
                 mkdir -p \"\$lower_dir\"
@@ -1064,16 +1106,15 @@ create_initramfs() {
             fi
         done
 
-        # Create the cpio archive from the case-correct copy
-        cd \"\$TMPROOT\"
         sudo chown -R 0:0 \"\$TMPROOT\"
-        find . | cpio -H newc -o --quiet 2>/dev/null | gzip -9 > \"\$OUT/initramfs.cpio.gz\"
+        
+        sudo rm -rf \"\$OUT/rootfs.squashfs\"
+        sudo mksquashfs \"\$TMPROOT\" \"\$OUT/rootfs.squashfs\" -comp zstd -Xcompression-level 15 -noappend
 
-        # Clean up
         sudo rm -rf \"\$TMPROOT\"
     "
 
-    ok "initramfs created: $OUT_DIR/initramfs.cpio.gz ($(du -h "$OUT_DIR/initramfs.cpio.gz" | cut -f1))"
+    ok "Squashfs created: $OUT_DIR/rootfs.squashfs ($(du -h "$OUT_DIR/rootfs.squashfs" | cut -f1))"
 }
 
 do_build() {
@@ -1091,6 +1132,7 @@ do_build() {
     build_gui
     build_rootfs
     create_initramfs
+    create_squashfs
 
     echo ""
     echo -e "${GREEN}=========================================${NC}"
@@ -1167,6 +1209,7 @@ GRUBEOF
         mkdir -p \"\$ISO_DIR/boot/grub/efi\" \"\$ISO_DIR/boot/protos\"
         cp \"\$OUT/Image\" \"\$ISO_DIR/boot/protos/vmlinuz\"
         cp \"\$OUT/initramfs.cpio.gz\" \"\$ISO_DIR/boot/protos/initramfs.gz\"
+        cp \"\$OUT/rootfs.squashfs\" \"\$ISO_DIR/boot/protos/rootfs.squashfs\" 
         cp \"\$EFI_IMG\" \"\$ISO_DIR/boot/grub/efi/efiboot.img\"
         cp /tmp/grub-embed.cfg \"\$ISO_DIR/boot/grub/grub.cfg\"
 
@@ -1190,7 +1233,7 @@ do_iso() {
     banner
     mkdir -p "$BUILD_DIR" "$OUT_DIR" "$DOWNLOAD_DIR"
 
-    if [ ! -f "$OUT_DIR/Image" ] || [ ! -f "$OUT_DIR/initramfs.cpio.gz" ]; then
+    if [ ! -f "$OUT_DIR/Image" ] || [ ! -f "$OUT_DIR/initramfs.cpio.gz" ] || [ ! -f "$OUT_DIR/rootfs.squashfs" ]; then
         error "Run './build.sh build' first to compile kernel and rootfs"
     fi
 
@@ -1205,7 +1248,7 @@ do_iso() {
     echo "  ISO: $OUT_DIR/protos-0.1.0-arm64.iso"
     echo ""
     echo "  Write to USB:  dd if=out/protos-0.1.0-arm64.iso of=/dev/sdX bs=4M status=progress"
-    echo "  Boot in QEMU:  ./boot.sh --iso"
+    echo "  Boot in QEMU:  ./bisoot.sh"
     echo ""
 }
 

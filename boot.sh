@@ -2,6 +2,8 @@
 # ProtOS Boot Script - Launch in QEMU
 set -e
 
+clear
+
 PROTOS_DIR="$(cd "$(dirname "$0")" && pwd)"
 OUT_DIR="$PROTOS_DIR/out"
 KERNEL="$OUT_DIR/Image"
