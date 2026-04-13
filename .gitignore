@@ -4,6 +4,6 @@ out/
 lib
 lib64
 sbin
-bin
+/bin
 .DS_Store
 $BUILD

@@ -1,0 +1,23 @@
+#!/bin/sh
+export LD_LIBRARY_PATH="/usr/lib"
+export XDG_RUNTIME_DIR="/run/user/$(id -u)"
+mkdir -p "$XDG_RUNTIME_DIR"
+chmod 700 "$XDG_RUNTIME_DIR"
+export XDG_CONFIG_HOME="/etc"
+export WLR_NO_HARDWARE_CURSORS=1
+export WLR_RENDERER_ALLOW_SOFTWARE=1
+# Let wlroots auto-detect the best backend
+#export WLR_BACKENDS=drm
+export MESA_GL_VERSION_OVERRIDE=3.3
+export GALLIUM_DRIVER=llvmpipe
+export LIBGL_ALWAYS_SOFTWARE=1
+export LIBGL_DRIVERS_PATH=/usr/lib/dri
+export __EGL_VENDOR_LIBRARY_DIRS=/usr/share/glvnd/egl_vendor.d
+export LIBSEAT_BACKEND=builtin
+
+if ! pidof seatd >/dev/null 2>&1; then
+    seatd -g video &
+    sleep 1
+fi
+
+exec Hyprland --i-am-really-stupid
