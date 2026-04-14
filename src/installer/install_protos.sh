@@ -2,7 +2,7 @@
 # ProtOS instalrer script v.1.0 (working, need to add other functions such as my own version of pacstrap lmao)
 set -e
 
-echo " ProtOS NVMe Installer "
+echo "ProtOS NVMe Installer "
 
 # ifentify the drive
 DISK="/dev/nvme0n1"

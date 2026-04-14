@@ -226,6 +226,10 @@ build_kernel() {
         ./scripts/config --enable CONFIG_BLK_DEV_NVME
         ./scripts/config --enable CONFIG_NVME_CORE
 
+        # CDROM support
+        ./scripts/config --enable CONFIG_CDROM
+        ./scripts/config --enable CONFIG_BLK_DEV_SR
+
         # Display support (needed for UTM/virtio-gpu and EFI framebuffer)
         ./scripts/config --enable CONFIG_DRM
         ./scripts/config --enable CONFIG_DRM_VIRTIO_GPU
@@ -273,7 +277,7 @@ build_kernel() {
 
         # Build kernel
         echo '[BUILD] Compiling kernel (using all CPU cores)...'
-        make ARCH=arm64 Image -j\$(nproc) 2>&1 | tail -5
+        make ARCH=arm64 Image -j\$(nproc) 2>&1 
 
         echo '[OK] Kernel compiled successfully'
     "

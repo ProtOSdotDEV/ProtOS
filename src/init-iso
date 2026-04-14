@@ -9,14 +9,24 @@ mount -t proc none /proc
 mount -t sysfs none /sys
 mount -t devtmpfs none /dev
 mount -t tmpfs none /tmp
+exec > /dev/tty0 2>&1
 
 echo "ProtOS: Mounting root filesystem from ISO..."
 
 # Wait for block devices to appear
-sleep 1
-mdev -s 2>/dev/null || true
+echo "Waiting for block devices..."
+TRIES=0
+while [ $TRIES -lt 10 ]; do
+    mdev -s 2>/dev/null || true
+    for check in /dev/src0 /dev/vda /dev/sda; do
+        [ -b "$check" ] && break 2
+    done
+    TRIES=$((TRIES + 1))
+    sleep 1
+done
+echo "Devices ready, scanning for rootfs..."
 
-# Try to find and mount the ISO/disk containing our squashfs
+# Try to find and mount the ISO/disk containing the squashfs
 # For CD-ROM: /dev/sr0
 # For virtio disk (UTM/QEMU): /dev/vda, /dev/vdb
 # For USB: /dev/sda, /dev/sdb
@@ -24,7 +34,7 @@ mdev -s 2>/dev/null || true
 mkdir -p /mnt/iso /mnt/squash /mnt/tmpfs /mnt/root
 
 ISO_FOUND=0
-for dev in /dev/sr0 /dev/vda /dev/vdb /dev/sda /dev/sdb /dev/nvme0n1; do
+for dev in /dev/sr0 /dev/vda /dev/vdb /dev/vda1 /dev/vda2 /dev/sda /dev/sdb /dev/sda1 /dev/nvme0n1; do
     [ -b "$dev" ] || continue
     if mount -t iso9660 -o ro "$dev" /mnt/iso 2>/dev/null; then
         if [ -f /mnt/iso/boot/protos/rootfs.squashfs ]; then
