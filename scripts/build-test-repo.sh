@@ -1,11 +1,11 @@
 #!/bin/bash
-# Build a test protpkg repository with a statically compiled nano
+# Build a test protopkg repository with a statically compiled nano
 set -e
 
 BUILD_DIR="${1:-/Users/skxlldxggy/ProtOS/build}"
-REPO_DIR="$BUILD_DIR/protpkg-repo"
+REPO_DIR="$BUILD_DIR/protopkg-repo"
 
-echo "[INFO] Building test protpkg repository..."
+echo "[INFO] Building test protopkg repository..."
 mkdir -p "$REPO_DIR"
 
 # Build static nano inside Lima VM
@@ -84,9 +84,9 @@ limactl shell protos-builder bash -c "
         file \"\$BUILD/nano-\${NANO_VERSION}/src/nano\"
     fi
 
-    # Create the protpkg package
+    # Create the protopkg package
     echo '[PKG] Creating nano package...'
-    PKGDIR='/tmp/protpkg-nano'
+    PKGDIR='/tmp/protopkg-nano'
     rm -rf \"\$PKGDIR\"
     mkdir -p \"\$PKGDIR/data/usr/bin\"
     mkdir -p \"\$PKGDIR/data/usr/share/nano\"
@@ -144,7 +144,7 @@ PKGEOF
 
     # Create htop package
     echo '[PKG] Creating htop package...'
-    PKGDIR2='/tmp/protpkg-htop'
+    PKGDIR2='/tmp/protopkg-htop'
     rm -rf \"\$PKGDIR2\"
     mkdir -p \"\$PKGDIR2/data/usr/bin\"
     if [ -f \"\$BUILD/htop-\${HTOP_VERSION}/htop\" ]; then

@@ -787,14 +787,14 @@ build_rootfs() {
     chmod +x "$ROOTFS/etc/install_protos.sh"
 
 
-    # Install protpkg package manager
-    info "Installing protpkg package manager..."
-    cp "$SRC_DIR/usr/bin/protpkg" "$ROOTFS/usr/bin/protpkg"
-    chmod +x "$ROOTFS/usr/bin/protpkg"
-    cp "$SRC_DIR/usr/bin/protpkg-build" "$ROOTFS/usr/bin/protpkg-build"
-    chmod +x "$ROOTFS/usr/bin/protpkg-build"
-    mkdir -p "$ROOTFS/var/lib/protpkg/installed"
-    mkdir -p "$ROOTFS/var/cache/protpkg"
+    # Install protopkg package manager
+    info "Installing protopkg package manager..."
+    cp "$SRC_DIR/usr/bin/protopkg" "$ROOTFS/usr/bin/protopkg"
+    chmod +x "$ROOTFS/usr/bin/protopkg"
+    cp "$SRC_DIR/usr/bin/protopkg-build" "$ROOTFS/usr/bin/protopkg-build"
+    chmod +x "$ROOTFS/usr/bin/protopkg-build"
+    mkdir -p "$ROOTFS/var/lib/protopkg/installed"
+    mkdir -p "$ROOTFS/var/cache/protopkg"
 
     # install GUI (hyprland + kitty + lins)
     info "Installing GUI components..."
