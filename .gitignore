@@ -1,9 +1,10 @@
 build/
 out/
 
-lib
-lib64
-sbin
+/lib
+/lib64
+/sbin
 /bin
+
 .DS_Store
 $BUILD
