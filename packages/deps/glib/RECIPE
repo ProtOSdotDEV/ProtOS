@@ -1,0 +1,32 @@
+#!/bin/sh
+
+pkgname="glib"
+pkgver="2.82.4"
+pkgdesc="Core application building blocks for GNOME libraries"
+pkgarch="aarch64"
+pkgdeps="pcre2 libffi"
+
+build() {
+    wget -q "https://download.gnome.org/sources/${pkgname}/2.82/${pkgname}-${pkgver}.tar.xz" -O ${pkgname}.tar.xz
+    tar xf ${pkgname}.tar.xz
+    cd ${pkgname}-${pkgver}
+    meson setup builddir \
+        --prefix=/usr \
+        --buildtype=release \
+        -Ddefault_library=shared \
+        -Dtests=false \
+        -Ddocumentation=false \
+        -Dintrospection=disabled \
+        -Dlibmount=disabled \
+        -Dselinux=disabled \
+        -Dxattr=false
+    ninja -C builddir -j$(nproc)
+}
+
+package() {
+    cd "$BUILDDIR/src/${pkgname}-${pkgver}"
+    DESTDIR="$PKGDIR/data" ninja -C builddir install
+    rm -rf "$PKGDIR/data/usr/share/"{man,doc,gtk-doc,gdb,bash-completion}
+    rm -rf "$PKGDIR/data/usr/libexec"
+    rm -f "$PKGDIR/data/usr/lib/"*.a
+}

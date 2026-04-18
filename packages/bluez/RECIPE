@@ -1,0 +1,48 @@
+#!/bin/sh
+
+pkgname="bluez"
+pkgver="5.72"
+pkgdesc="Bluetooth protocol stack for Linux"
+pkgarch="aarch64"
+pkgdeps="glib dbus"
+
+build() {
+    wget -q "https://www.kernel.org/pub/linux/bluetooth/${pkgname}-${pkgver}.tar.xz" -O ${pkgname}.tar.xz
+    tar xf ${pkgname}.tar.xz
+    cd "${pkgname}-${pkgver}"
+    ./configure \
+        --prefix=/usr \
+        --sysconfdir=/etc \
+        --disable-manpages \
+        --disable-test \
+        --disable-cups \
+        --disable-obex \
+        --disable-bap \
+        --disable-mcp \
+        --disable-vcp \
+        --disable-hid2hci \
+        --enable-tools \
+        --enable-client \
+        --enable-threads \
+        --enable-deprecated \
+        --with-dbusconfdir=/etc/dbus-1 \
+        --with-udevdir=/lib/udev
+    make -j$(nproc)
+}
+
+package() {
+    cd "$BUILDDIR/src/${pkgname}-${pkgver}"
+    mkdir -p "$PKGDIR/data/usr/bin"
+    mkdir -p "$PKGDIR/data/usr/lib/bluetooth"
+    mkdir -p "$PKGDIR/data/etc/bluetooth"
+    mkdir -p "$PKGDIR/data/etc/dbus-1/system.d"
+    mkdir -p "$PKGDIR/data/lib/udev/rules.d"
+
+    cp src/bluetoothd "$PKGDIR/data/usr/lib/bluetooth/bluetoothd"
+    cp client/bluetoothctl "$PKGDIR/data/usr/bin/bluetoothctl"
+    cp tools/hciconfig "$PKGDIR/data/usr/bin/hciconfig"
+    cp tools/hcitool "$PKGDIR/data/usr/bin/hcitool"
+    cp tools/btattach "$PKGDIR/data/usr/bin/btattach"
+    cp src/main.conf "$PKGDIR/data/etc/bluetooth/main.conf"
+    cp src/bluetooth.conf "$PKGDIR/data/etc/dbus-1/system.d/bluetooth.conf"
+}

@@ -1,7 +1,6 @@
 build/
 out/
 
-/packages
 /lib
 /lib64
 /sbin

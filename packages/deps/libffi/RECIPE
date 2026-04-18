@@ -1,0 +1,27 @@
+#!/bin/sh
+
+pkgname="libffi"
+pkgver="3.4.6"
+pkgdesc="Foreign Function Interface library"
+pkgarch="aarch64"
+pkgdeps="-"
+
+build() {
+    wget -q "https://github.com/${pkgname}/${pkgname}/releases/download/v${pkgver}/${pkgname}-${pkgver}.tar.gz" -O ${pkgname}.tar.gz
+    tar xf ${pkgname}.tar.gz
+    cd ${pkgname}-${pkgver}
+    ./configure \
+        --prefix=/usr \
+        --enable-shared \
+        --disable-static \
+        --disable-docs
+    make -j$(nproc)
+}
+
+package() {
+    cd "$BUILDDIR/src/${pkgname}-${pkgver}"
+    make DESTDIR="$PKGDIR/data" install
+    rm -f "$PKGDIR/data/usr/lib/"*.a
+    rm -f "$PKGDIR/data/usr/lib/"*.la
+    rm -rf "$PKGDIR/data/usr/share"
+}

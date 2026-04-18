@@ -1,0 +1,37 @@
+#!/bin/sh
+
+pkgname="dbus"
+pkgver="1.14.10"
+pkgdesc="D-Bus message bus system"
+pkgarch="aarch64"
+pkgdeps="glib expat"
+
+build() {
+    wget -q "https://dbus.freedesktop.org/releases/${pkgname}/${pkgname}-${pkgver}.tar.xz" -O ${pkgname}.tar.xz
+    tar xf ${pkgname}.tar.xz
+    cd ${pkgname}-${pkgver}
+    ./configure \
+        --prefix=/usr \
+        --sysconfdir=/etc \
+        --localstatedir=/var \
+        --enable-shared \
+        --disable-static \
+        --disable-doxygen-docs \
+        --disable-xml-docs \
+        --disable-ducktype-docs \
+        --without-x \
+        --with-system-socket=/run/dbus/system_bus_socket \
+        --with-system-pid-file=/run/dbus/pid
+    make -j$(nproc)
+}
+
+package() {
+    cd "$BUILDDIR/src/dbus-${pkgver}"
+    make DESTDIR="$PKGDIR/data" install
+    rm -f "$PKGDIR/data/usr/lib/"*.a
+    rm -f "$PKGDIR/data/usr/lib/"*.la
+    rm -rf "$PKGDIR/data/usr/share/"{man,doc}
+    # create runtime socket dit
+    mkdir -p "$PKGDIR/data/run/dbus"
+
+}

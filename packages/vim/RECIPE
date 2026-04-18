@@ -1,0 +1,35 @@
+#!/bin/sh
+
+pkgname="vim"
+pkgver="9.2"
+pkgdesc="Vi IMproved - enhanced text editor"
+pkgarch="aarch64"
+pkgdeps="-"
+
+build() {
+    wget -q "https://github.com/vim/vim/archive/refs/tags/v${pkgver}.0.tar.gz" -O vim.tar.gz
+    tar xf vim.tar.gz
+    cd vim-${pkgver}.0/src
+    LDFLAGS="-static" ./configure \
+        --with-features=normal \
+        --disable-gui \
+        --disable-nls \
+        --disable-gpm \
+        --disable-selinux \
+        --disable-canberra \
+        --disable-libsodium \
+        --disable-channel \
+        --disable-terminal \
+        --without-x \
+        --with-wayland=no
+    make -j$(nproc) LDFLAGS="-static"
+
+}
+
+package() {
+    mkdir -p "$PKGDIR/data/usr/bin"
+    cp "$BUILDDIR/src/vim-${pkgver}.0/src/vim" "$PKGDIR/data/usr/bin/vim"
+    chmod +x "$PKGDIR/data/usr/bin/vim"
+    ln -s vim "$PKGDIR/data/usr/bin/vi"
+
+}
