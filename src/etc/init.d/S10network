@@ -1,0 +1,16 @@
+#!/bin/sh
+# netowrk autoconfig
+
+case "$1" in
+    start)
+        for iface in eth0 enp0s1 ens2; do
+            if [ -e "/sys/class/net/$iface" ]; then
+                ip link set "$iface" up 2>/dev/null
+                udhcpc -i "$iface" -s /etc/udhcpc.sh -q -b 2>/dev/null &
+            fi
+        done
+        ;;
+    stop)
+        killall udhcpc 2>/dev/null
+        ;;
+esac

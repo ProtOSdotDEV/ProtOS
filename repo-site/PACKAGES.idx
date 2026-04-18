@@ -1,2 +1,9 @@
-nano|8.3|aarch64|-|1724991|d37b062a2492b54c4781f8f6ad9bcf22820d6f303a2ee0293565b008f5fbc41d|Small and friendly text editor (statically linked)
-htop|3.3.0|aarch64|-|0|84d8a87d990aa3215aa98d5c1262e9f28324e380e1e8cb3e04cdec4ef23b9d15|Interactive process viewer (statically linked)
+nano|8.3|aarch64|-|1824|e5e27dce902ca27a67c3594ff312ee6a79d587892278af0e46b0d89242a13a48|Small and friendly text editor (statically linked)
+htop|3.3.0|aarch64|-|12|6b42d978fdadc88214f6afe9d8057e8fd59b7897b62885f30b4fc22712b141da|Interactive process viewer (statically linked)
+vim|9.2|aarch64|-|15872|352f6227b874224586a9946e28e056f3c98eafa386bc85e5fea0aab2cad35cee|Vi IMproved - enhanced text editor
+pcre2|10.44|aarch64|-|1412|796b5307b40dbc8198652f1c0fc26405c2e38d3f4fab4b8d96cba13e139ce704|Perl Compatible Regular Expressions library
+libffi|3.4.6|aarch64|-|140|2a326f917348ba6180534d1f7ccf726439c9549a350653639b52cb6c703c6d2f|Foreign Function Interface library
+expat|2.6.4|aarch64|-|648|926ee3ef02317d41142369328972688784247c26fe4028849afd3e048e8377c1|XML parsing library
+glib|2.82.4|aarch64|pcre2 libffi|10360|fe4f2cecd1f8f36f82e6ff97ce3ae35519ff017a7f9d006bb54a56ac9955ce16|Core application building blocks for GNOME libraries
+dbus|1.14.10|aarch64|glib expat|1692|5c3469088ad326d4b9f39ce742ebb463c9462d0783a380447f129c2bdf9e2030|D-Bus message bus system
+bluez|5.72|aarch64|glib dbus|8740|4d56dc50b2b41918abce2c0f859c30e3b6a72ba37850998dcabe0ba07d7f68d7|Bluetooth protocol stack for Linux

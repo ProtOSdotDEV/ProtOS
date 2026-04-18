@@ -78,7 +78,7 @@ cmd_sync() {
 # Search the package index
 cmd_search() {
     [ -z "$1" ] && die "Usage: protopkg search <term>"
-    [ ! -f "$INDEX_FILE" ] && die "No package index. Run: protopkg sync"
+    [ ! -f "$INDEX_FILE" ] && die "No package index. Run: proopkg sync"
 
     local term="$1"
     printf "${BOLD}%-20s %-12s %s${NC}\n" "Name" "Version" "Description"
@@ -431,7 +431,7 @@ cmd_upgrade() {
 
         if [ -n "$iver" ] && [ -n "$rver" ] && [ "$iver" != "$rver" ]; then
             upgrades="$upgrades $name"
-            printf " %s : %s -> %s\n" "$name" "$iver" "$rver"
+            printf " &s : &s -> %s\n" "$name" "$iver" "$rver"
         fi
 
     done

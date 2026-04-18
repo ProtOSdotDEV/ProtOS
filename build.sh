@@ -222,6 +222,31 @@ build_kernel() {
         ./scripts/config --enable CONFIG_INPUT_MOUSE
         ./scripts/config --enable CONFIG_TMPFS_POSIX_ACL
 
+        # Bluetooth support
+        ./scripts/config --enable CONFIG_BT
+        ./scripts/config --enable CONFIG_BT_BREDR
+        ./scripts/config --enable CONFIG_BT_LE
+        ./scripts/config --enable CONFIG_BT_RFCOMM
+        ./scripts/config --enable CONFIG_BT_RFCOMM_TTY
+        ./scripts/config --enable CONFIG_BT_BNEP
+        ./scripts/config --enable CONFIG_BT_HIDP
+        ./scripts/config --enable CONFIG_BT_HCIUART
+        ./scripts/config --enable CONFIG_BT_HCIUART_H4
+        ./scripts/config --enable CONFIG_BT_HCIUART_QCA
+        ./scripts/config --enable CONFIG_BT_QCA
+        ./scripts/config --enable CONFIG_BT_HCIUART_BCM
+        ./scripts/config --enable CONFIG_BT_HCIUART_BCM
+        ./scripts/config --enable CONFIG_BT_HCIUART_RTL
+        
+        # Wifi - QCS6490 uses ath11k
+        ./scripts/config --enable CONFIG_CFG80211
+        ./scripts/config --enable CONFIG_MAC80211
+        ./scripts/config --enable CONFIG_BRCMFMAC
+        ./scripts/config --enable CONFIG_RTW88
+        ./scripts/config --enable CONFIG_ATH11K
+        ./scripts/config --enable CONFIG_ATH11K_AHB
+        ./scripts/config --enable CONFIG_ATH11K_PCI
+
         # NVMe support
         ./scripts/config --enable CONFIG_BLK_DEV_NVME
         ./scripts/config --enable CONFIG_NVME_CORE
@@ -259,10 +284,6 @@ build_kernel() {
         ./scripts/config --enable CONFIG_BLK_DEV_LOOP
 
         # Disable unnecessary features to speed up build
-        ./scripts/config --disable CONFIG_SOUND
-        ./scripts/config --disable CONFIG_WLAN
-        ./scripts/config --disable CONFIG_WIRELESS
-        ./scripts/config --disable CONFIG_BLUETOOTH
         ./scripts/config --disable CONFIG_NFS_FS
         ./scripts/config --disable CONFIG_CIFS
         ./scripts/config --disable CONFIG_DEBUG_INFO_BTF
@@ -777,6 +798,8 @@ build_rootfs() {
     cp "$SRC_DIR/etc/inittab" "$ROOTFS/etc/inittab"
     cp "$SRC_DIR/etc/shell-login" "$ROOTFS/etc/shell-login"
     chmod +x "$ROOTFS/etc/shell-login"
+    cp "$SRC_DIR/etc/init.d/S10network" "$ROOTFS/etc/init.d/S10network"
+    chmod +x "$ROOTFS/etc/init.d/S10network"
     cp "$SRC_DIR/etc/init.d/rcS" "$ROOTFS/etc/init.d/rcS"
     chmod +x "$ROOTFS/etc/init.d/rcS"
     cp "$SRC_DIR/etc/udhcpc.sh" "$ROOTFS/etc/udhcpc.sh"
@@ -795,6 +818,8 @@ build_rootfs() {
     chmod +x "$ROOTFS/usr/bin/protopkg-build"
     mkdir -p "$ROOTFS/var/lib/protopkg/installed"
     mkdir -p "$ROOTFS/var/cache/protopkg"
+
+    echo "https://github.com/ProtOSdotDev/protopkg-repo/releases/download/repo" > "$ROOTFS/var/lib/protopkg/repo.conf"
 
     # install GUI (hyprland + kitty + lins)
     info "Installing GUI components..."
@@ -1093,7 +1118,7 @@ create_squashfs() {
        find \"\$TMPROOT/usr/bin\" -type f -exec chmod +x {} +
        find \"\$TMPROOT/usr/sbin\" -type f -exec chmod +x {} +
        find \"\$TMPROOT/usr/lib\" -type f -exec chmod +x {} +
-       chmod +x \"\$TMPROOT/etc/shell-login\" \"\$TMPROOT/etc/init.d/rcS\" \"\$TMPROOT/etc/udhcpc.sh\" 2>/dev/null || true
+       chmod +x \"\$TMPROOT/etc/shell-login\" \"\$TMPROOT/etc/init.d/S10network\" \"\$TMPROOT/etc/init.d/rcS\" \"\$TMPROOT/etc/udhcpc.sh\" 2>/dev/null || true
        chmod +x \"\$TMPROOT/etc/installer.sh\" 2>/dev/null || true
        chmod +x \"\$TMPROOT/etc/install_protos.sh\" 2>/dev/null || true
        chmod +x \"\$TMPROOT/usr/bin/start-hyprland\" 2>/dev/null || true

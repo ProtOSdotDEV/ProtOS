@@ -69,4 +69,6 @@ qemu-system-aarch64 \
     -kernel "$KERNEL" \
     -initrd "$INITRAMFS" \
     -append "$APPEND" \
+    -device virtio-net-pci,netdev=net0 \
+    -netdev user,id=net0 \
     $EXTRA_ARGS

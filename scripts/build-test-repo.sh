@@ -106,7 +106,7 @@ deps=-
 PKGEOF
 
     # Calculate size
-    SIZE=\$(du -sb \"\$PKGDIR/data\" | cut -f1)
+    SIZE=\$(du -sk \"\$PKGDIR/data\" | cut -f1)
     echo \"size=\$SIZE\" >> \"\$PKGDIR/PKGINFO\"
 
     # Build the package
@@ -160,7 +160,7 @@ arch=aarch64
 deps=-
 PKGEOF2
 
-    SIZE2=\$(du -sb \"\$PKGDIR2/data\" | cut -f1)
+    SIZE2=\$(du -sk \"\$PKGDIR2/data\" | cut -f1)
     echo \"size=\$SIZE2\" >> \"\$PKGDIR2/PKGINFO\"
 
     cd \"\$PKGDIR2\"
