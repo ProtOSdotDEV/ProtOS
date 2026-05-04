@@ -189,7 +189,6 @@ build_kernel() {
         cd \"\$BUILD/linux-\${KERNEL_VERSION}\"
 
         # Configure kernel - start with defconfig, then apply the customizations
-        rm -rf \$BUILD_DIR/linux-\${KERNEL_VERSION}/.config
         echo '[CONFIG] Generating kernel config...'
         make ARCH=arm64 defconfig
 
@@ -564,191 +563,191 @@ build_utillinux() {
     ok "util-linux compiled"
 }
 
-build_gui() {
-    info "Building GUI stack (Hyprland + kitty terminal)..."
+# build_gui() {
+#     info "Building GUI stack (Hyprland + kitty terminal)..."
     
-    lima_exec "
-        set -e
-        BUILD='$BUILD_DIR'
-        GUI_PREFIX=\"\$BUILD/gui-install\"
-        mkdir -p \$GUI_PREFIX/include \$GUI_PREFIX/lib
+#     lima_exec "
+#         set -e
+#         BUILD='$BUILD_DIR'
+#         GUI_PREFIX=\"\$BUILD/gui-install\"
+#         mkdir -p \$GUI_PREFIX/include \$GUI_PREFIX/lib
 
-        sudo apt-get update -qq
-        sudo apt-get install -y -qq \
-            cmake meson ninja-build pkg-config g++ \
-            git ca-certificates \
-            libwayland-dev wayland-protocols \
-            libdrm-dev libinput-dev libxkbcommon-dev \
-            libpixman-1-dev libcairo2-dev libpango1.0-dev \
-            libegl-dev libgles-dev libgbm-dev \
-            libseat-dev libudev-dev libdisplay-info-dev \
-            libtomlplusplus-dev libliftoff-dev \
-            libfreetype-dev libfontconfig-dev \
-            libharfbuzz-dev libfcft-dev \
-            hwdata glslang-tools \
-            libxml2-dev libsystemd-dev \
-            fonts-liberation \
-            libxcb-composite0-dev libxcb-dri3-dev libxcb-present-dev \
-            libxcb-render0-dev libxcb-shm0-dev libxcb-xfixes0-dev \
-            libxcb-xinput-dev libxcb-icccm4-dev \
-            libxcb-res0-dev \
-            libxcb-ewmh-dev xwayland \
-            libpcre2-dev uuid-dev libpugixml-dev libglvnd-dev libxrandr-dev \
-            libxrandr-dev libxinerama-dev libxcursor-dev libxi-dev libxkbfile-dev libxkbcommon-x11-dev libx11-xcb-dev \
+#         sudo apt-get update -qq
+#         sudo apt-get install -y -qq \
+#             cmake meson ninja-build pkg-config g++ \
+#             git ca-certificates \
+#             libwayland-dev wayland-protocols \
+#             libdrm-dev libinput-dev libxkbcommon-dev \
+#             libpixman-1-dev libcairo2-dev libpango1.0-dev \
+#             libegl-dev libgles-dev libgbm-dev \
+#             libseat-dev libudev-dev libdisplay-info-dev \
+#             libtomlplusplus-dev libliftoff-dev \
+#             libfreetype-dev libfontconfig-dev \
+#             libharfbuzz-dev libfcft-dev \
+#             hwdata glslang-tools \
+#             libxml2-dev libsystemd-dev \
+#             fonts-liberation \
+#             libxcb-composite0-dev libxcb-dri3-dev libxcb-present-dev \
+#             libxcb-render0-dev libxcb-shm0-dev libxcb-xfixes0-dev \
+#             libxcb-xinput-dev libxcb-icccm4-dev \
+#             libxcb-res0-dev \
+#             libxcb-ewmh-dev xwayland \
+#             libpcre2-dev uuid-dev libpugixml-dev libglvnd-dev libxrandr-dev \
+#             libxrandr-dev libxinerama-dev libxcursor-dev libxi-dev libxkbfile-dev libxkbcommon-x11-dev libx11-xcb-dev \
 
-            2>&1
+#             2>&1
         
-        export PKG_CONFIG_PATH=\$GUI_PREFIX/lib/pkgconfig:\$GUI_PREFIX/lib/aarch64-linux-gnu/pkgconfig:\$GUI_PREFIX/share/pkgconfig:\${PKG_CONFIG_PATH:-}
-        export CMAKE_PREFIX_PATH=\$GUI_PREFIX
-        export CFLAGS=\"-I\$GUI_PREFIX/include\"
-        export CXXFLAGS=\"-I\$GUI_PREFIX/include\"
-        export LDFLAGS=\"-L\$GUI_PREFIX/lib -L\$GUI_PREFIX/lib/aarch64-linux-gnu\"
+#         export PKG_CONFIG_PATH=\$GUI_PREFIX/lib/pkgconfig:\$GUI_PREFIX/lib/aarch64-linux-gnu/pkgconfig:\$GUI_PREFIX/share/pkgconfig:\${PKG_CONFIG_PATH:-}
+#         export CMAKE_PREFIX_PATH=\$GUI_PREFIX
+#         export CFLAGS=\"-I\$GUI_PREFIX/include\"
+#         export CXXFLAGS=\"-I\$GUI_PREFIX/include\"
+#         export LDFLAGS=\"-L\$GUI_PREFIX/lib -L\$GUI_PREFIX/lib/aarch64-linux-gnu\"
 
-                # seatd
-        if [ ! -f \$GUI_PREFIX/bin/seatd ]; then
-            echo \"  -> Building seatd...\"
-            cd /tmp
-            rm -rf seatd
-            git clone --depth 1 --branch 0.8.0 https://git.sr.ht/~kennylevinsen/seatd
-            cd seatd
-            meson setup build --prefix=\$GUI_PREFIX \
-                -Dlibseat-logind=disabled -Dlibseat-seatd=enabled \
-                -Dlibseat-builtin=enabled -Dserver=enabled
-            ninja -C build -j\$(nproc)
-            ninja -C build install
-        fi
+#                 # seatd
+#         if [ ! -f \$GUI_PREFIX/bin/seatd ]; then
+#             echo \"  -> Building seatd...\"
+#             cd /tmp
+#             rm -rf seatd
+#             git clone --depth 1 --branch 0.8.0 https://git.sr.ht/~kennylevinsen/seatd
+#             cd seatd
+#             meson setup build --prefix=\$GUI_PREFIX \
+#                 -Dlibseat-logind=disabled -Dlibseat-seatd=enabled \
+#                 -Dlibseat-builtin=enabled -Dserver=enabled
+#             ninja -C build -j\$(nproc)
+#             ninja -C build install
+#         fi
 
 
-        # wlroots 0.17.4
-        if [ ! -f \$GUI_PREFIX/lib/libwlroots.so ]; then
-            info2() { echo \"  -> Building wlroots...\"; }; info2
-            cd /tmp
-            rm -rf wlroots-0.17.4
-            wget -q https://gitlab.freedesktop.org/wlroots/wlroots/-/archive/0.17.4/wlroots-0.17.4.tar.gz
-            tar xzf wlroots-0.17.4.tar.gz
-            cd wlroots-0.17.4
-            meson setup build \
-                --prefix=\$GUI_PREFIX \
-                --libdir=lib \
-                -Dexamples=false \
-                -Dxwayland=enabled \
-                -Dbackends=drm,libinput \
-                -Drenderers=gles2
-            ninja -C build -j\$(nproc)
-            ninja -C build install
-        fi
+#         # wlroots 0.17.4
+#         if [ ! -f \$GUI_PREFIX/lib/libwlroots.so ]; then
+#             info2() { echo \"  -> Building wlroots...\"; }; info2
+#             cd /tmp
+#             rm -rf wlroots-0.17.4
+#             wget -q https://gitlab.freedesktop.org/wlroots/wlroots/-/archive/0.17.4/wlroots-0.17.4.tar.gz
+#             tar xzf wlroots-0.17.4.tar.gz
+#             cd wlroots-0.17.4
+#             meson setup build \
+#                 --prefix=\$GUI_PREFIX \
+#                 --libdir=lib \
+#                 -Dexamples=false \
+#                 -Dxwayland=enabled \
+#                 -Dbackends=drm,libinput \
+#                 -Drenderers=gles2
+#             ninja -C build -j\$(nproc)
+#             ninja -C build install
+#         fi
 
-        # hyprutils
-        if [ ! -f \$GUI_PREFIX/lib/hyprutils.so ]; then
-            echo \"  -> Building hyprutils...\"
-            cd /tmp
-            rm -rf hyprutils
-            git clone --depth 1 --branch v0.2.3 https://github.com/hyprwm/hyprutils.git
-            cd hyprutils
-            cmake -B build \
-                -DCMAKE_INSTALL_PREFIX=\$GUI_PREFIX \
-                -DCMAKE_BUILD_TYPE=Release
-            cmake --build build -j\$(nproc)
-            cmake --install build
-        fi
+#         # hyprutils
+#         if [ ! -f \$GUI_PREFIX/lib/hyprutils.so ]; then
+#             echo \"  -> Building hyprutils...\"
+#             cd /tmp
+#             rm -rf hyprutils
+#             git clone --depth 1 --branch v0.2.3 https://github.com/hyprwm/hyprutils.git
+#             cd hyprutils
+#             cmake -B build \
+#                 -DCMAKE_INSTALL_PREFIX=\$GUI_PREFIX \
+#                 -DCMAKE_BUILD_TYPE=Release
+#             cmake --build build -j\$(nproc)
+#             cmake --install build
+#         fi
 
-        # hyprlang
-        if [ ! -f \$GUI_PREFIX/lib/libhyprlang.so ]; then
-            echo \"  -> Building hyprlang...\"
-            cd /tmp
-            rm -rf hyprlang
-            git clone --depth 1 --branch v0.5.2 https://github.com/hyprwm/hyprlang.git
-            cd hyprlang
-            cmake -B build \
-                -DCMAKE_INSTALL_PREFIX=\$GUI_PREFIX \
-                -DCMAKE_BUILD_TYPE=Release
-            cmake --build build -j\$(nproc)
-            cmake --install build
-        fi
+#         # hyprlang
+#         if [ ! -f \$GUI_PREFIX/lib/libhyprlang.so ]; then
+#             echo \"  -> Building hyprlang...\"
+#             cd /tmp
+#             rm -rf hyprlang
+#             git clone --depth 1 --branch v0.5.2 https://github.com/hyprwm/hyprlang.git
+#             cd hyprlang
+#             cmake -B build \
+#                 -DCMAKE_INSTALL_PREFIX=\$GUI_PREFIX \
+#                 -DCMAKE_BUILD_TYPE=Release
+#             cmake --build build -j\$(nproc)
+#             cmake --install build
+#         fi
 
-        # hyprwayland-scanner
-        if [ ! -f \$GUI_PREFIX/bin/hyprwayland-scanner ]; then
-        echo \"  -> Building hyprwayland-scanner...\"
-            cd /tmp
-            rm -rf hyprwayland-scanner
-            git clone --depth 1 --branch v0.4.0 https://github.com/hyprwm/hyprwayland-scanner.git
-            cd hyprwayland-scanner
-            cmake -B build \
-                -DCMAKE_INSTALL_PREFIX=\$GUI_PREFIX \
-                -DCMAKE_BUILD_TYPE=Release
-            cmake --build build -j\$(nproc)
-            cmake --install build
-        fi
+#         # hyprwayland-scanner
+#         if [ ! -f \$GUI_PREFIX/bin/hyprwayland-scanner ]; then
+#         echo \"  -> Building hyprwayland-scanner...\"
+#             cd /tmp
+#             rm -rf hyprwayland-scanner
+#             git clone --depth 1 --branch v0.4.0 https://github.com/hyprwm/hyprwayland-scanner.git
+#             cd hyprwayland-scanner
+#             cmake -B build \
+#                 -DCMAKE_INSTALL_PREFIX=\$GUI_PREFIX \
+#                 -DCMAKE_BUILD_TYPE=Release
+#             cmake --build build -j\$(nproc)
+#             cmake --install build
+#         fi
 
-        # Hyprland
-        if [ ! -f \$GUI_PREFIX/bin/Hyprland ]; then
-            echo \"  -> Building Hyprland...\"
-            if ! g++ -std=c++23 -x c++ -c /dev/null -o /dev/null 2>/dev/null; then
-                sudo apt-get install -y -qq g++-13 2>&1 | tail -1
-                export CXX=g++-13
-                export CC=gcc-13
-            fi
-            cd /tmp
-            rm -rf Hyprland
-            git clone --recursive --depth 1 --branch v0.34.0 https://github.com/hyprwm/Hyprland.git
-            cd Hyprland
-            cmake -B build \
-                -DCMAKE_INSTALL_PREFIX=\$GUI_PREFIX \
-                -DCMAKE_BUILD_TYPE=Release \
-                -DNO_XWAYLAND=OFF
-            cmake --build build -j\$(nproc)
-            cmake --install build
-            cp -f /tmp/Hyprland/build/Hyprland \$GUI_PREFIX/bin/ 2>/dev/null || true
-            cp -f /tmp/Hyprland/build/hyprctl/hyprctl \$GUI_PREFIX/bin/ 2>/dev/null || true
-        fi
+#         # Hyprland
+#         if [ ! -f \$GUI_PREFIX/bin/Hyprland ]; then
+#             echo \"  -> Building Hyprland...\"
+#             if ! g++ -std=c++23 -x c++ -c /dev/null -o /dev/null 2>/dev/null; then
+#                 sudo apt-get install -y -qq g++-13 2>&1 | tail -1
+#                 export CXX=g++-13
+#                 export CC=gcc-13
+#             fi
+#             cd /tmp
+#             rm -rf Hyprland
+#             git clone --recursive --depth 1 --branch v0.34.0 https://github.com/hyprwm/Hyprland.git
+#             cd Hyprland
+#             cmake -B build \
+#                 -DCMAKE_INSTALL_PREFIX=\$GUI_PREFIX \
+#                 -DCMAKE_BUILD_TYPE=Release \
+#                 -DNO_XWAYLAND=OFF
+#             cmake --build build -j\$(nproc)
+#             cmake --install build
+#             cp -f /tmp/Hyprland/build/Hyprland \$GUI_PREFIX/bin/ 2>/dev/null || true
+#             cp -f /tmp/Hyprland/build/hyprctl/hyprctl \$GUI_PREFIX/bin/ 2>/dev/null || true
+#         fi
 
-        # kitty
-        if [ ! -f \$GUI_PREFIX/bin/kitty ]; then
-            echo \"  -> Building kitty...\"
-            sudo apt-get install -y -qq \
-                libfontconfig-dev libfreetype-dev libharfbuzz-dev \
-                libpng-dev liblcms2-dev libxxhash-dev libcrypt-dev \
-                python3-dev golang libdbus-1-dev libsimde-dev \
-                2>&1 | tail -1
-            cd /tmp
-            rm -rf kitty
-            wget -q https://github.com/kovidgoyal/kitty/releases/download/v0.35.2/kitty-0.35.2.tar.xz
-            tar xf kitty-0.35.2.tar.xz
+#         # kitty
+#         if [ ! -f \$GUI_PREFIX/bin/kitty ]; then
+#             echo \"  -> Building kitty...\"
+#             sudo apt-get install -y -qq \
+#                 libfontconfig-dev libfreetype-dev libharfbuzz-dev \
+#                 libpng-dev liblcms2-dev libxxhash-dev libcrypt-dev \
+#                 python3-dev golang libdbus-1-dev libsimde-dev \
+#                 2>&1 | tail -1
+#             cd /tmp
+#             rm -rf kitty
+#             wget -q https://github.com/kovidgoyal/kitty/releases/download/v0.35.2/kitty-0.35.2.tar.xz
+#             tar xf kitty-0.35.2.tar.xz
 
-            # update simde headers
-            cd /tmp
-            rm -rf simde
-            git clone --depth 1 https://github.com/simd-everywhere/simde.git
-            sudo cp -a simde/simde /usr/include
+#             # update simde headers
+#             cd /tmp
+#             rm -rf simde
+#             git clone --depth 1 https://github.com/simd-everywhere/simde.git
+#             sudo cp -a simde/simde /usr/include
 
-            cd kitty-0.35.2
-            CFLAGS=\"-Wno-error \$CFLAGS\" python3 setup.py linux-package \
-                --prefix=\$GUI_PREFIX \
-                --update-check-interval=0 \
-                --extra-include-dirs=\$GUI_PREFIX/include \
-                --extra-library-dirs=\$GUI_PREFIX/lib
-            if [ -d linux-package ]; then 
-                cp -a linux-package/* \$GUI_PREFIX/
-            fi
+#             cd kitty-0.35.2
+#             CFLAGS=\"-Wno-error \$CFLAGS\" python3 setup.py linux-package \
+#                 --prefix=\$GUI_PREFIX \
+#                 --update-check-interval=0 \
+#                 --extra-include-dirs=\$GUI_PREFIX/include \
+#                 --extra-library-dirs=\$GUI_PREFIX/lib
+#             if [ -d linux-package ]; then 
+#                 cp -a linux-package/* \$GUI_PREFIX/
+#             fi
         
-        fi
+#         fi
 
-        # DejaVu fonts
-        FONT_DIR=\$GUI_PREFIX/share/fonts/TTF
-        mkdir -p \$FONT_DIR
-        if [ ! -f \$FONT_DIR/DejaVuSansMono.ttf ]; then
-            echo \"  -> Installing DejaVu fonts...\"
-            cd /tmp
-            wget -q -O dejavu.tar.bz2 https://github.com/dejavu-fonts/dejavu-fonts/releases/download/version_2_37/dejavu-fonts-ttf-2.37.tar.bz2
-            tar xf dejavu.tar.bz2
-            cp dejavu-fonts-ttf-2.37/ttf/*.ttf \$FONT_DIR/
-            rm -rf dejavu-fonts-ttf-2.37 dejavu.tar.bz2
-        fi
+#         # DejaVu fonts
+#         FONT_DIR=\$GUI_PREFIX/share/fonts/TTF
+#         mkdir -p \$FONT_DIR
+#         if [ ! -f \$FONT_DIR/DejaVuSansMono.ttf ]; then
+#             echo \"  -> Installing DejaVu fonts...\"
+#             cd /tmp
+#             wget -q -O dejavu.tar.bz2 https://github.com/dejavu-fonts/dejavu-fonts/releases/download/version_2_37/dejavu-fonts-ttf-2.37.tar.bz2
+#             tar xf dejavu.tar.bz2
+#             cp dejavu-fonts-ttf-2.37/ttf/*.ttf \$FONT_DIR/
+#             rm -rf dejavu-fonts-ttf-2.37 dejavu.tar.bz2
+#         fi
 
-        echo \"GUI stack build complete!\"
-        "
+#         echo \"GUI stack build complete!\"
+#         "
 
-}
+# }
 
 build_rootfs() {
     info "Building ProtOS root filesystem from scratch..."
@@ -791,7 +790,7 @@ build_rootfs() {
     chmod +x "$ROOTFS/init"
 
     # Install ProtOS config files
-    cp "$SRC_DIR/etc/os-release" "$ROOTFS/etc/os-release"
+    # cp "$SRC_DIR/etc/o\ Ms-release" "$ROOTFS/etc/os-release"
     cp "$SRC_DIR/etc/hostname" "$ROOTFS/etc/hostname"
     cp "$SRC_DIR/etc/motd" "$ROOTFS/etc/motd"
     cp "$SRC_DIR/etc/profile" "$ROOTFS/etc/profile"
@@ -1158,7 +1157,7 @@ do_build() {
     build_e2fsprogs
     build_gptfdisk
     build_utillinux
-    build_gui
+    # build_gui
     build_rootfs
     create_initramfs
     create_squashfs
